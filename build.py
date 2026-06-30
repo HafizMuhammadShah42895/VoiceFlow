@@ -27,7 +27,6 @@ PyInstaller.__main__.run([
     '--collect-all=httpx',
     '--collect-all=pyperclip',
     '--collect-all=numpy',
-    '--icon=NONE',
     '--noconfirm',
     '--clean'
 ])
