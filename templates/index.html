@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoiceFlow Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="glass-container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">🎙️</div>
+                <h1>VoiceFlow</h1>
+            </div>
+            <div class="status-badge" id="status-badge">
+                <span class="status-dot" id="status-dot"></span>
+                <span id="status-text">Idle</span>
+            </div>
+        </header>
+
+        <main>
+            <section class="card">
+                <h2>Settings Dashboard</h2>
+                <p class="subtitle">Configure your dictation and AI enhancement shortcuts.</p>
+                
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label>Main Dictation Hotkey</label>
+                        <div class="hotkey-inputs">
+                            <select id="hotkey-1" class="hotkey-select">
+                                <option value="alt" selected>Alt</option>
+                                <option value="shift">Shift</option>
+                                <option value="ctrl">Ctrl</option>
+                                <option value="cmd">Win</option>
+                            </select>
+                            <span class="plus">+</span>
+                            <select id="hotkey-2" class="hotkey-select">
+                                <option value="alt">Alt</option>
+                                <option value="shift" selected>Shift</option>
+                                <option value="ctrl">Ctrl</option>
+                                <option value="space">Space</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <label>AI Polish Hotkey</label>
+                        <div class="hotkey-inputs">
+                            <select id="ai-key-1" class="hotkey-select">
+                                <option value="alt">Alt</option>
+                                <option value="shift">Shift</option>
+                                <option value="ctrl" selected>Ctrl</option>
+                                <option value="cmd">Win</option>
+                            </select>
+                            <span class="plus">+</span>
+                            <select id="ai-key-2" class="hotkey-select">
+                                <option value="alt">Alt</option>
+                                <option value="shift" selected>Shift</option>
+                                <option value="ctrl">Ctrl</option>
+                                <option value="space">Space</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="setting-item full-width">
+                        <label for="api-key">Groq API Key</label>
+                        <input type="password" id="api-key" placeholder="gsk_..." class="api-input">
+                        <small>Required for AI grammar fixing. Get one at console.groq.com.</small>
+                    </div>
+                </div>
+
+                <button id="hotkey-save" class="btn-primary">Apply Settings</button>
+            </section>
+
+            <section class="instructions">
+                <h3>How to use VoiceFlow</h3>
+                <div class="step">
+                    <div class="step-num">1</div>
+                    <p>Hold your <strong>Dictation Hotkey</strong> anywhere to speak. Release to paste.</p>
+                </div>
+                <div class="step">
+                    <div class="step-num">2</div>
+                    <p>Press your <strong>AI Polish Hotkey</strong> to instantly fix grammar with AI.</p>
+                </div>
+            </section>
+        </main>
+        
+        <div id="toast" class="toast" role="alert" aria-live="polite"></div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

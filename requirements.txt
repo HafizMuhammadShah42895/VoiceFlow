@@ -1,0 +1,11 @@
+flask
+pyaudio
+SpeechRecognition
+pynput
+pyautogui
+faster-whisper
+pyperclip
+groq
+python-dotenv
+pywebview
+pyinstaller
