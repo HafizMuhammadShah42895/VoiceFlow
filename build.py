@@ -12,6 +12,7 @@ PyInstaller.__main__.run([
     '--name=VoiceFlow',
     '--windowed', # Hide the terminal console
     '--onefile', # Make it a single executable
+    '--icon=app.ico',
     f'--add-data=templates{sep}templates', # Include templates folder
     f'--add-data=static{sep}static', # Include static folder
     '--hidden-import=pynput.keyboard._win32',

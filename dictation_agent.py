@@ -6,6 +6,11 @@ from pynput import keyboard
 import collections
 import queue
 import tkinter as tk
+import json
+import os
+import time
+
+CONFIG_FILE = os.path.expanduser('~/.voiceflow_config.json')
 
 _MODIFIER_MAP = {
     'alt_l': 'alt', 'alt_r': 'alt', 'alt': 'alt',
@@ -84,27 +89,51 @@ class DictationAgent:
         self.ai_hotkey = {'ctrl', 'shift'}
         self.api_key = ""
         self.custom_prompt = DEFAULT_PROMPT
+        self.run_at_startup = False
+        self._load_config()
+        
         self._is_ai_editing = False
         self.status = 'idle'
+        self._last_callback_time = time.time()
         self.overlay = FloatingOverlay()
         threading.Thread(target=self.overlay.start, daemon=True).start()
+
+    def _load_config(self):
+        try:
+            if os.path.exists(CONFIG_FILE):
+                with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if 'hotkey' in data and len(data['hotkey']) >= 2:
+                        self.set_hotkey(data['hotkey'][0], data['hotkey'][1])
+                    if 'ai_hotkey' in data and len(data['ai_hotkey']) >= 2:
+                        self.set_ai_hotkey(data['ai_hotkey'][0], data['ai_hotkey'][1])
+                    if 'api_key' in data:
+                        self.api_key = data['api_key']
+                    if 'custom_prompt' in data:
+                        self.custom_prompt = data['custom_prompt']
+                    if 'run_at_startup' in data:
+                        self.set_startup(data['run_at_startup'])
+                log("Configuration loaded from disk.")
+        except Exception as e:
+            log(f"Failed to load config: {e}")
+
+    def save_config(self):
+        try:
+            data = self.get_config()
+            with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f)
+            log("Configuration saved to disk.")
+        except Exception as e:
+            log(f"Failed to save config: {e}")
 
     def start(self):
         self._running = True
         self._pa = pyaudio.PyAudio()
         
-        try:
-            self._stream = self._pa.open(
-                format=pyaudio.paInt16,
-                channels=1,
-                rate=self._sample_rate,
-                input=True,
-                frames_per_buffer=self._chunk_size,
-                stream_callback=self._audio_callback
-            )
-            self._stream.start_stream()
-        except Exception as e:
-            log(f"Failed to open audio stream: {e}")
+        self._reopen_stream()
+        
+        # Start watchdog to recover from unplugged headphones
+        threading.Thread(target=self._audio_watchdog, daemon=True).start()
 
         self._listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
         self._listener.start()
@@ -122,6 +151,40 @@ class DictationAgent:
             except Exception as e:
                 log(f"Failed to load Whisper model: {e}")
                 self._has_speechrec = False
+
+    def _reopen_stream(self):
+        try:
+            if self._stream:
+                self._stream.stop_stream()
+                self._stream.close()
+        except:
+            pass
+            
+        try:
+            self._stream = self._pa.open(
+                format=pyaudio.paInt16,
+                channels=1,
+                rate=self._sample_rate,
+                input=True,
+                frames_per_buffer=self._chunk_size,
+                stream_callback=self._audio_callback
+            )
+            self._stream.start_stream()
+            self._last_callback_time = time.time()
+            log("Audio stream connected.")
+        except Exception as e:
+            log(f"Failed to open audio stream: {e}")
+
+    def _audio_watchdog(self):
+        while self._running:
+            time.sleep(1.0)
+            # If we haven't received audio data in 2 seconds, the device was likely unplugged
+            if time.time() - self._last_callback_time > 2.0:
+                if not self.is_recording:
+                    log("Hardware interrupt detected. Rebuilding audio stream...")
+                    self._reopen_stream()
+                else:
+                    self._last_callback_time = time.time() # don't interrupt active recordings unless necessary
 
     def stop(self):
         self._running = False
@@ -187,6 +250,7 @@ class DictationAgent:
         self._audio_chunks = list(self._rolling_buffer)
 
     def _audio_callback(self, in_data, frame_count, time_info, status):
+        self._last_callback_time = time.time()
         self._rolling_buffer.append(in_data)
         if self.is_recording:
             self._audio_chunks.append(in_data)
@@ -373,6 +437,30 @@ class DictationAgent:
         self.keys_pressed.clear()
         log(f"AI Hotkey set to: {self.ai_hotkey}")
 
+    def set_startup(self, enabled):
+        self.run_at_startup = enabled
+        try:
+            import winreg
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
+            if enabled:
+                if getattr(sys, 'frozen', False):
+                    path = f'"{sys.executable}"'
+                else:
+                    # Get absolute path to app.py assuming the agent is imported there
+                    import os
+                    path = f'"{sys.executable}" "{os.path.abspath(sys.argv[0])}"'
+                winreg.SetValueEx(key, "VoiceFlow", 0, winreg.REG_SZ, path)
+                log("Added to Windows Startup.")
+            else:
+                try:
+                    winreg.DeleteValue(key, "VoiceFlow")
+                    log("Removed from Windows Startup.")
+                except FileNotFoundError:
+                    pass
+            winreg.CloseKey(key)
+        except Exception as e:
+            log(f"Failed to update startup registry: {e}")
+
     def get_config(self):
         keys = list(self.hotkey)
         while len(keys) < 2:
@@ -386,5 +474,6 @@ class DictationAgent:
             'ai_hotkey': ai_keys[:2],
             'api_key': self.api_key,
             'custom_prompt': self.custom_prompt,
-            'default_prompt': DEFAULT_PROMPT
+            'default_prompt': DEFAULT_PROMPT,
+            'run_at_startup': self.run_at_startup
         }

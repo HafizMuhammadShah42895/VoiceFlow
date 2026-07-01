@@ -1,15 +1,15 @@
 :root {
-    --bg-base: #11111b;
-    --bg-surface: rgba(30, 30, 46, 0.6);
-    --bg-card: rgba(24, 24, 37, 0.7);
-    --primary: #cba6f7;
-    --primary-hover: #b4befe;
+    --bg-base: #0c0c14; /* Deep black to make neon colors pop */
+    --bg-card: rgba(30, 30, 46, 0.15); /* Ultra transparent */
+    --bg-surface: rgba(20, 20, 33, 0.1); /* Ultra transparent */
+    --primary: #a855f7;
+    --primary-hover: #b874fa;
     --success: #a6e3a1;
     --warning: #f9e2af;
     --text-main: #cdd6f4;
     --text-muted: #a6adc8;
-    --border: rgba(205, 214, 244, 0.1);
-    --glass-blur: blur(12px);
+    --border: rgba(205, 214, 244, 0.15);
+    --glass-blur: blur(4px);
 }
 
 /* Custom Scrollbar */
@@ -47,6 +47,25 @@ body {
         radial-gradient(circle at 85% 30%, rgba(137, 180, 250, 0.15), transparent 25%);
     overflow-x: hidden;
     overflow-y: auto;
+    position: relative;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100vw;
+    height: 100vh;
+    background-image: url('../img/logo_cropped.png');
+    background-size: 85%;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.9; 
+    mix-blend-mode: screen;
+    z-index: -1;
+    pointer-events: none;
 }
 
 .glass-container {

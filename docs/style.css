@@ -1,13 +1,14 @@
 :root {
-    --bg-base: #11111b;
-    --bg-surface: rgba(30, 30, 46, 0.6);
-    --bg-card: rgba(24, 24, 37, 0.7);
-    --primary: #cba6f7;
+    --bg-base: #0c0c14;
+    --bg-card: rgba(24, 24, 37, 0.6);
+    --bg-surface: rgba(12, 12, 20, 0.6);
+    --primary: #a855f7;
+    --secondary: #00e5ff;
     --primary-hover: #b4befe;
     --text-main: #cdd6f4;
     --text-muted: #a6adc8;
     --border: rgba(205, 214, 244, 0.1);
-    --glass-blur: blur(16px);
+    --glass-blur: blur(5px);
 }
 
 * {
@@ -22,6 +23,25 @@ body {
     color: var(--text-main);
     line-height: 1.6;
     overflow-x: hidden;
+    position: relative;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100vw;
+    height: 100vh;
+    background-image: url('assets/logo_cropped.png');
+    background-size: 60%;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.4;
+    mix-blend-mode: screen;
+    z-index: -1;
+    pointer-events: none;
 }
 
 .background-effects {
@@ -245,12 +265,14 @@ nav a:hover {
     padding: 0 24px;
 }
 
-.feature-card {
+.benefit-card, .feature-card {
     background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     padding: 32px;
-    transition: transform 0.2s;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    transition: transform 0.3s;
 }
 
 .feature-card:hover {
@@ -307,15 +329,6 @@ nav a:hover {
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 32px;
     margin-top: 40px;
-}
-
-.benefit-card {
-    text-align: center;
-    padding: 24px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 16px;
-    border: 1px solid var(--border);
-    transition: transform 0.3s;
 }
 
 .benefit-card:hover {

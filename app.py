@@ -41,6 +41,10 @@ def set_config():
             agent.api_key = data['api_key']
         if 'custom_prompt' in data:
             agent.custom_prompt = data['custom_prompt']
+        if 'run_at_startup' in data:
+            agent.set_startup(data['run_at_startup'])
+            
+        agent.save_config()
         return jsonify({'ok': True, 'hotkey': list(agent.hotkey)})
     return jsonify({'ok': False, 'error': 'Invalid payload'}), 400
 

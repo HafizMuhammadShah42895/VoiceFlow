@@ -8,6 +8,7 @@
     const apiKey = document.getElementById('api-key');
     const customPrompt = document.getElementById('custom-prompt');
     const resetPrompt = document.getElementById('reset-prompt');
+    const startupSelect = document.getElementById('startup-select');
     const hotkeySave = document.getElementById('hotkey-save');
     const statusDot = document.getElementById('status-dot');
     const statusText = document.getElementById('status-text');
@@ -49,6 +50,9 @@
                     customPrompt.value = data.custom_prompt;
                     window.defaultPrompt = data.default_prompt;
                 }
+                if (data.run_at_startup !== undefined) {
+                    startupSelect.value = data.run_at_startup ? "true" : "false";
+                }
             })
             .catch(() => {});
     }
@@ -64,11 +68,18 @@
         const ai2 = aiKey2.value || 'shift';
         const key = apiKey.value.trim();
         const promptText = customPrompt.value.trim();
+        const runAtStartup = startupSelect.value === "true";
 
         fetch('/api/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key1: k1, key2: k2, ai_key1: ai1, ai_key2: ai2, api_key: key, custom_prompt: promptText })
+            body: JSON.stringify({ 
+                key1: k1, key2: k2, 
+                ai_key1: ai1, ai_key2: ai2, 
+                api_key: key, 
+                custom_prompt: promptText,
+                run_at_startup: runAtStartup
+            })
         })
         .then(r => r.json())
         .then(data => {

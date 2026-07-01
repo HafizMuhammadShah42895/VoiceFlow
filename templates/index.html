@@ -11,8 +11,7 @@
     <div class="glass-container">
         <header>
             <div class="logo">
-                <div class="logo-icon">🎙️</div>
-                <h1>VoiceFlow</h1>
+                <img src="/static/img/logo_cropped.png" alt="VoiceFlow Logo" style="height: 45px; mix-blend-mode: screen;">
             </div>
             <div class="status-badge" id="status-badge">
                 <span class="status-dot" id="status-dot"></span>
@@ -51,17 +50,25 @@
                             <select id="ai-key-1" class="hotkey-select">
                                 <option value="alt">Alt</option>
                                 <option value="shift">Shift</option>
-                                <option value="ctrl" selected>Ctrl</option>
+                                <option value="ctrl">Ctrl</option>
                                 <option value="cmd">Win</option>
                             </select>
                             <span class="plus">+</span>
                             <select id="ai-key-2" class="hotkey-select">
                                 <option value="alt">Alt</option>
-                                <option value="shift" selected>Shift</option>
+                                <option value="shift">Shift</option>
                                 <option value="ctrl">Ctrl</option>
                                 <option value="space">Space</option>
                             </select>
                         </div>
+                    </div>
+                    
+                    <div class="setting-item full-width">
+                        <label for="startup-select">Launch on Startup (Windows only)</label>
+                        <select id="startup-select" class="hotkey-select">
+                            <option value="true">Yes (Run in background)</option>
+                            <option value="false">No (Manual launch)</option>
+                        </select>
                     </div>
 
                     <div class="setting-item full-width">
