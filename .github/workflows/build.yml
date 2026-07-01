@@ -80,3 +80,45 @@ jobs:
       with:
         name: ${{ matrix.asset_name }}
         path: dist/${{ matrix.artifact_name }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Windows Installer
+        uses: actions/download-artifact@v4
+        with:
+          name: VoiceFlow_Setup
+          path: release_assets/
+          
+      - name: Download Mac App
+        uses: actions/download-artifact@v4
+        with:
+          name: VoiceFlow-Mac
+          path: mac_temp/
+          
+      - name: Download Linux App
+        uses: actions/download-artifact@v4
+        with:
+          name: VoiceFlow-Linux
+          path: linux_temp/
+          
+      - name: Prepare Assets
+        run: |
+          mkdir -p release_assets
+          cd mac_temp
+          zip -r ../release_assets/VoiceFlow_Mac.zip .
+          cd ../linux_temp
+          mv VoiceFlow ../release_assets/VoiceFlow_Linux || mv * ../release_assets/VoiceFlow_Linux
+          cd ..
+          
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "latest"
+          name: "VoiceFlow (Latest Build)"
+          body: "This release is automatically compiled and uploaded by GitHub Actions! No manual upload required."
+          files: release_assets/*
+          make_latest: true
