@@ -12,6 +12,21 @@
     --glass-blur: blur(12px);
 }
 
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(203, 166, 247, 0.3);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(203, 166, 247, 0.5);
+}
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -30,7 +45,8 @@ body {
     background-image: 
         radial-gradient(circle at 15% 50%, rgba(203, 166, 247, 0.15), transparent 25%),
         radial-gradient(circle at 85% 30%, rgba(137, 180, 250, 0.15), transparent 25%);
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .glass-container {
@@ -197,6 +213,45 @@ h2 {
 small {
     font-size: 11px;
     color: var(--text-muted);
+}
+
+.prompt-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.reset-link {
+    font-size: 11px;
+    color: var(--primary);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.reset-link:hover {
+    color: var(--primary-hover);
+    text-decoration: underline;
+}
+
+.prompt-area {
+    font-family: inherit;
+    background: var(--bg-base);
+    color: var(--text-main);
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+    transition: all 0.2s;
+    width: 100%;
+    resize: vertical;
+    min-height: 90px;
+    line-height: 1.5;
+}
+
+.prompt-area:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(203, 166, 247, 0.2);
 }
 
 .btn-primary {

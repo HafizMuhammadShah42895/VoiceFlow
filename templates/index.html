@@ -69,6 +69,15 @@
                         <input type="password" id="api-key" placeholder="gsk_..." class="api-input">
                         <small>Required for AI grammar fixing. Get one at console.groq.com.</small>
                     </div>
+
+                    <div class="setting-item full-width">
+                        <div class="prompt-header">
+                            <label for="custom-prompt">AI System Prompt</label>
+                            <a href="#" id="reset-prompt" class="reset-link">Reset to Default</a>
+                        </div>
+                        <textarea id="custom-prompt" class="prompt-area" rows="4" placeholder="Enter instructions for the AI..."></textarea>
+                        <small>Instruct the AI exactly how to rewrite your text.</small>
+                    </div>
                 </div>
 
                 <button id="hotkey-save" class="btn-primary">Apply Settings</button>
@@ -82,7 +91,7 @@
                 </div>
                 <div class="step">
                     <div class="step-num">2</div>
-                    <p>Press your <strong>AI Polish Hotkey</strong> to instantly fix grammar with AI.</p>
+                    <p>Highlight any text and press your <strong>AI Polish Hotkey</strong> to instantly fix it.</p>
                 </div>
             </section>
         </main>

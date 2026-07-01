@@ -14,6 +14,8 @@ _MODIFIER_MAP = {
     'cmd_l': 'cmd', 'cmd_r': 'cmd', 'cmd': 'cmd',
 }
 
+DEFAULT_PROMPT = "You are a strict grammar-correction API. You do not answer questions, converse, or add any new information. Your ONLY job is to fix grammatical and structural errors in the user's text and return the corrected text. Do NOT wrap the text in quotes, do NOT explain the changes, and do NOT include any preamble. If the text is already perfect, return it exactly as is."
+
 def log(msg):
     try:
         print(f"[dictation] {msg}", flush=True)
@@ -81,7 +83,7 @@ class DictationAgent:
         self.whisper_model = None
         self.ai_hotkey = {'ctrl', 'shift'}
         self.api_key = ""
-        self.last_dictated_text = ""
+        self.custom_prompt = DEFAULT_PROMPT
         self._is_ai_editing = False
         self.status = 'idle'
         self.overlay = FloatingOverlay()
@@ -160,9 +162,9 @@ class DictationAgent:
             log(f"Key press error: {e}")
             return
 
-        if self.keys_pressed == self.hotkey and not self.is_recording:
+        if self.hotkey.issubset(self.keys_pressed) and not self.is_recording:
             self._start_recording()
-        elif self.keys_pressed == self.ai_hotkey and not self.is_recording and not self._is_ai_editing:
+        elif self.ai_hotkey.issubset(self.keys_pressed) and not self.is_recording and not self._is_ai_editing:
             threading.Thread(target=self._trigger_ai_edit, daemon=True).start()
 
     def _on_release(self, key):
@@ -209,7 +211,6 @@ class DictationAgent:
                 text = self._transcribe(raw)
                 if text:
                     log(f"Typing: \"{text[:60]}...\"")
-                    self.last_dictated_text = text + ' '
                     self._type_text(text)
                 else:
                     log("No text to type")
@@ -258,7 +259,7 @@ class DictationAgent:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a headless grammar-correction API. You have no personality. You do not talk. You receive a string of text, and you return ONLY the grammatically corrected version of that exact text. IF the text is already perfect, return it exactly as is. RULES:\n1. NO PREAMBLE. (Do not say 'Here is the text').\n2. NO EXPLANATION. \n3. DO NOT ANSWER QUESTIONS. \n4. RETURN ONLY THE TEXT."
+                        "content": self.custom_prompt
                     },
                     {
                         "role": "user",
@@ -284,35 +285,73 @@ class DictationAgent:
             log(f"Type error: {e}")
 
     def _trigger_ai_edit(self):
-        if not self.last_dictated_text:
-            log("No recent text to edit.")
-            return
         self._is_ai_editing = True
         self.overlay.set_state('ai_edit')
-        log("AI Edit triggered...")
+        log("AI Edit triggered on selected text...")
         
         try:
             import pyperclip
             import time
+            import pyautogui
             
-            # Wait for user to physically release the hotkeys so they don't interfere with Backspace/Paste
+            # Wait for user to physically release the hotkeys so they don't interfere with Ctrl+C/V
             wait_time = 0
-            while self.keys_pressed and wait_time < 1.0:
+            while self.keys_pressed and wait_time < 2.0:
                 time.sleep(0.05)
                 wait_time += 0.05
                 
             self.keys_pressed.clear()
+            
+            # Force release physical modifier keys just in case they are still physically held down
+            from pynput.keyboard import Controller, Key
+            kb = Controller()
+            kb.release(Key.ctrl)
+            kb.release(Key.shift)
+            kb.release(Key.alt)
+            time.sleep(0.1)
+            
+            # Save current clipboard
+            try:
+                old_clipboard = pyperclip.paste()
+            except:
+                old_clipboard = ""
+            
+            # Clear clipboard to detect if copy was successful
+            pyperclip.copy('')
+            
+            # Copy selected text
+            log("Simulating Ctrl+C...")
+            pyautogui.hotkey('ctrl', 'c')
+            time.sleep(0.3)
+            
+            try:
+                selected_text = pyperclip.paste().strip()
+            except:
+                selected_text = ""
+            
+            if not selected_text:
+                log("No text selected or copy failed!")
+                pyperclip.copy(old_clipboard)
+                return
                 
-            num_chars = len(self.last_dictated_text)
-            log(f"Deleting {num_chars} characters...")
+            log(f"Selected: \"{selected_text[:30]}...\"")
             
-            pyautogui.press('backspace', presses=num_chars, interval=0.0)
+            new_text = self._enhance_with_llm(selected_text)
             
-            new_text = self._enhance_with_llm(self.last_dictated_text.strip())
+            # Paste the new text over the selection
+            pyperclip.copy(new_text)
             
-            self.last_dictated_text = new_text + ' '
-            pyperclip.copy(self.last_dictated_text)
+            kb.release(Key.ctrl)
+            kb.release(Key.shift)
+            kb.release(Key.alt)
+            
+            log("Simulating Ctrl+V...")
             pyautogui.hotkey('ctrl', 'v')
+            
+            # Small delay to ensure paste happens before restoring old clipboard
+            time.sleep(0.3)
+            pyperclip.copy(old_clipboard)
+            
             log("AI Edit complete.")
         except Exception as e:
             log(f"AI Edit error: {e}")
@@ -345,5 +384,7 @@ class DictationAgent:
             'status': self.status,
             'hotkey': keys[:2],
             'ai_hotkey': ai_keys[:2],
-            'api_key': self.api_key
+            'api_key': self.api_key,
+            'custom_prompt': self.custom_prompt,
+            'default_prompt': DEFAULT_PROMPT
         }

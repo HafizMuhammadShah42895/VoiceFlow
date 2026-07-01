@@ -39,6 +39,8 @@ def set_config():
             agent.set_ai_hotkey(data['ai_key1'], data['ai_key2'])
         if 'api_key' in data:
             agent.api_key = data['api_key']
+        if 'custom_prompt' in data:
+            agent.custom_prompt = data['custom_prompt']
         return jsonify({'ok': True, 'hotkey': list(agent.hotkey)})
     return jsonify({'ok': False, 'error': 'Invalid payload'}), 400
 

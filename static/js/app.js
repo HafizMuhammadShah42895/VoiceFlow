@@ -6,6 +6,8 @@
     const aiKey1 = document.getElementById('ai-key-1');
     const aiKey2 = document.getElementById('ai-key-2');
     const apiKey = document.getElementById('api-key');
+    const customPrompt = document.getElementById('custom-prompt');
+    const resetPrompt = document.getElementById('reset-prompt');
     const hotkeySave = document.getElementById('hotkey-save');
     const statusDot = document.getElementById('status-dot');
     const statusText = document.getElementById('status-text');
@@ -43,6 +45,10 @@
                 if (data.api_key !== undefined) {
                     apiKey.value = data.api_key;
                 }
+                if (data.custom_prompt !== undefined) {
+                    customPrompt.value = data.custom_prompt;
+                    window.defaultPrompt = data.default_prompt;
+                }
             })
             .catch(() => {});
     }
@@ -57,11 +63,12 @@
         const ai1 = aiKey1.value || 'ctrl';
         const ai2 = aiKey2.value || 'shift';
         const key = apiKey.value.trim();
+        const promptText = customPrompt.value.trim();
 
         fetch('/api/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key1: k1, key2: k2, ai_key1: ai1, ai_key2: ai2, api_key: key })
+            body: JSON.stringify({ key1: k1, key2: k2, ai_key1: ai1, ai_key2: ai2, api_key: key, custom_prompt: promptText })
         })
         .then(r => r.json())
         .then(data => {
@@ -106,6 +113,13 @@
 
     function bindEvents() {
         hotkeySave.addEventListener('click', saveHotkeyConfig);
+        
+        resetPrompt.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (window.defaultPrompt) {
+                customPrompt.value = window.defaultPrompt;
+            }
+        });
 
         window.addEventListener('beforeunload', function() {
             if (pollInterval) clearInterval(pollInterval);
