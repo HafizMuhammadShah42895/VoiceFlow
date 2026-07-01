@@ -34,7 +34,7 @@ body::before {
     transform: translate(-50%, -50%);
     width: 100vw;
     height: 100vh;
-    background-image: url('assets/logo_cropped.png');
+    background-image: url('assets/logo_final.png');
     background-size: 60%;
     background-repeat: no-repeat;
     background-position: center;
@@ -448,11 +448,35 @@ footer {
     to { opacity: 1; transform: translateY(0); }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
     .hero h1 { font-size: 48px; }
-    header { padding: 20px; }
+    .features-grid { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+}
+
+@media (max-width: 768px) {
+    body::before { background-size: 90%; opacity: 0.25; }
+    header { 
+        flex-direction: column; 
+        padding: 16px; 
+        gap: 16px; 
+    }
+    nav {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 16px;
+    }
+    .hero { margin: 40px auto; }
+    .hero h1 { font-size: 36px; letter-spacing: -1px; }
+    .hero p { font-size: 16px; }
+    
     .button-group { flex-direction: column; align-items: center; }
     .btn-download { width: 100%; max-width: 300px; }
+    
+    .features-grid { grid-template-columns: 1fr; }
+    .benefits-grid { grid-template-columns: 1fr; }
+    
+    .content-wrapper { padding: 24px; }
+    .why-section h2, .benefits-section h2 { font-size: 28px; }
     
     .about-content {
         flex-direction: column;

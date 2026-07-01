@@ -11,7 +11,7 @@
     <div class="glass-container">
         <header>
             <div class="logo">
-                <img src="/static/img/logo_cropped.png" alt="VoiceFlow Logo" style="height: 45px; mix-blend-mode: screen;">
+                <img src="/static/img/logo_final.png" alt="VoiceFlow Logo" style="height: 45px; mix-blend-mode: screen;">
             </div>
             <div class="status-badge" id="status-badge">
                 <span class="status-dot" id="status-dot"></span>
@@ -64,11 +64,12 @@
                     </div>
                     
                     <div class="setting-item full-width">
-                        <label for="startup-select">Launch on Startup (Windows only)</label>
+                        <label for="startup-select">Auto-Start with Windows</label>
                         <select id="startup-select" class="hotkey-select">
-                            <option value="true">Yes (Run in background)</option>
-                            <option value="false">No (Manual launch)</option>
+                            <option value="true">Yes (Always ready in the background)</option>
+                            <option value="false">No (I will open it manually)</option>
                         </select>
+                        <small>Automatically runs VoiceFlow silently when you turn on your PC.</small>
                     </div>
 
                     <div class="setting-item full-width">

@@ -66,7 +66,7 @@ if __name__ == '__main__':
     t.start()
     
     # Create the native desktop window
-    window = webview.create_window('VoiceFlow Dashboard', 'http://127.0.0.1:5000', width=600, height=750, resizable=False)
+    window = webview.create_window('VoiceFlow Dashboard', 'http://127.0.0.1:5000', width=600, height=750, min_size=(600, 750))
     
     # Start the webview application
     webview.start()
