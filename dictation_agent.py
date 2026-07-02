@@ -86,10 +86,20 @@ class DictationAgent:
         self._pa = None
         self._has_speechrec = False
         self.whisper_model = None
-        self.ai_hotkey = {'ctrl', 'shift'}
+        
+        self.ai_presets = [
+            {
+                "id": "preset_1",
+                "name": "Default Grammar Polish",
+                "hotkeys": ["ctrl", "shift"],
+                "prompt": DEFAULT_PROMPT
+            }
+        ]
+        
         self.api_key = ""
-        self.custom_prompt = DEFAULT_PROMPT
         self.run_at_startup = False
+        self.use_local_llm = False
+        self.dictation_language = "auto"
         self._load_config()
         
         self._is_ai_editing = False
@@ -105,12 +115,14 @@ class DictationAgent:
                     data = json.load(f)
                     if 'hotkey' in data and len(data['hotkey']) >= 2:
                         self.set_hotkey(data['hotkey'][0], data['hotkey'][1])
-                    if 'ai_hotkey' in data and len(data['ai_hotkey']) >= 2:
-                        self.set_ai_hotkey(data['ai_hotkey'][0], data['ai_hotkey'][1])
+                    if 'ai_presets' in data:
+                        self.ai_presets = data['ai_presets']
                     if 'api_key' in data:
                         self.api_key = data['api_key']
-                    if 'custom_prompt' in data:
-                        self.custom_prompt = data['custom_prompt']
+                    if 'dictation_language' in data:
+                        self.dictation_language = data['dictation_language']
+                    if 'use_local_llm' in data:
+                        self.use_local_llm = data['use_local_llm']
                     if 'run_at_startup' in data:
                         self.set_startup(data['run_at_startup'])
                 log("Configuration loaded from disk.")
@@ -143,10 +155,10 @@ class DictationAgent:
         if not self._has_speechrec:
             log("WARNING: faster_whisper or numpy not installed!")
         else:
-            log("Loading Faster-Whisper model (base.en)... this may take a moment.")
+            log("Loading Faster-Whisper model (base)... this may take a moment.")
             try:
                 from faster_whisper import WhisperModel
-                self.whisper_model = WhisperModel("base.en", device="cpu", compute_type="int8")
+                self.whisper_model = WhisperModel("base", device="cpu", compute_type="int8")
                 log("Whisper model loaded!")
             except Exception as e:
                 log(f"Failed to load Whisper model: {e}")
@@ -227,8 +239,19 @@ class DictationAgent:
 
         if self.hotkey.issubset(self.keys_pressed) and not self.is_recording:
             self._start_recording()
-        elif self.ai_hotkey.issubset(self.keys_pressed) and not self.is_recording and not self._is_ai_editing:
-            threading.Thread(target=self._trigger_ai_edit, daemon=True).start()
+            return
+            
+        if not self.is_recording and not self._is_ai_editing:
+            for preset in self.ai_presets:
+                preset_keys = set()
+                for k in preset.get("hotkeys", []):
+                    if isinstance(k, str):
+                        lk = k.lower()
+                        preset_keys.add(_MODIFIER_MAP.get(lk, lk))
+                
+                if preset_keys and preset_keys.issubset(self.keys_pressed):
+                    threading.Thread(target=self._trigger_ai_edit, args=(preset.get("prompt", DEFAULT_PROMPT),), daemon=True).start()
+                    break
 
     def _on_release(self, key):
         try:
@@ -244,6 +267,16 @@ class DictationAgent:
 
     def _start_recording(self):
         log("Recording started")
+        try:
+            import winsound
+            import sys, os
+            if getattr(sys, 'frozen', False):
+                b_dir = sys._MEIPASS
+            else:
+                b_dir = os.path.dirname(os.path.abspath(__file__))
+            winsound.PlaySound(os.path.join(b_dir, 'static', 'sounds', 'start.wav'), winsound.SND_FILENAME | winsound.SND_ASYNC)
+        except:
+            pass
         self.is_recording = True
         self.status = 'listening'
         self.overlay.set_state('listening')
@@ -258,6 +291,16 @@ class DictationAgent:
 
     def _stop_recording(self):
         log("Recording stopped, processing...")
+        try:
+            import winsound
+            import sys, os
+            if getattr(sys, 'frozen', False):
+                b_dir = sys._MEIPASS
+            else:
+                b_dir = os.path.dirname(os.path.abspath(__file__))
+            winsound.PlaySound(os.path.join(b_dir, 'static', 'sounds', 'stop.wav'), winsound.SND_FILENAME | winsound.SND_ASYNC)
+        except:
+            pass
         self.is_recording = False
         self.keys_pressed.clear()
         self.status = 'processing'
@@ -297,10 +340,13 @@ class DictationAgent:
             audio_data = np.frombuffer(raw_bytes, dtype=np.int16).astype(np.float32) / 32768.0
             
             log("Transcribing with Faster-Whisper...")
+            
+            lang = None if self.dictation_language == "auto" else self.dictation_language
             segments, info = self.whisper_model.transcribe(
                 audio_data, 
-                beam_size=5,
-                vad_filter=True,
+                language=lang,
+                beam_size=1,
+                vad_filter=False,
                 initial_prompt="Here is a transcription with correct capitalization, commas, and periods."
             )
             
@@ -311,7 +357,54 @@ class DictationAgent:
             log(f"Transcription error: {e}")
             return None
 
-    def _enhance_with_llm(self, text):
+    def transcribe_file(self, filepath):
+        if not self._has_speechrec or not self.whisper_model:
+            log("Cannot transcribe: faster_whisper not installed or model failed to load")
+            return None
+            
+        try:
+            log(f"Transcribing file: {filepath}")
+            lang = None if getattr(self, 'dictation_language', 'auto') == "auto" else self.dictation_language
+            segments, info = self.whisper_model.transcribe(
+                filepath, 
+                language=lang,
+                beam_size=1,
+                vad_filter=True,
+                initial_prompt="Here is a transcription with correct capitalization, commas, and periods."
+            )
+            text = " ".join([segment.text for segment in segments])
+            log("File transcription complete")
+            return text.strip()
+        except Exception as e:
+            log(f"File transcription error: {e}")
+            return None
+
+    def _enhance_with_llm(self, text, prompt):
+        if self.use_local_llm:
+            log("Sending to Local Ollama LLM for polish...")
+            try:
+                import urllib.request
+                import json
+                
+                url = "http://localhost:11434/api/chat"
+                payload = {
+                    "model": "llama3",
+                    "messages": [
+                        {"role": "system", "content": prompt},
+                        {"role": "user", "content": text}
+                    ],
+                    "stream": False
+                }
+                req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
+                with urllib.request.urlopen(req, timeout=120) as response:
+                    res_data = json.loads(response.read().decode('utf-8'))
+                    polished = res_data.get('message', {}).get('content', '').strip()
+                    log("Local AI polish complete.")
+                    return polished
+            except Exception as e:
+                log(f"Local Ollama API Error: {e}")
+                return text
+
         if not self.api_key:
             log("API key missing. Skipping AI enhancement.")
             return text
@@ -323,7 +416,7 @@ class DictationAgent:
                 messages=[
                     {
                         "role": "system",
-                        "content": self.custom_prompt
+                        "content": prompt
                     },
                     {
                         "role": "user",
@@ -345,11 +438,42 @@ class DictationAgent:
             import pyperclip
             pyperclip.copy(text + ' ')
             pyautogui.hotkey('ctrl', 'v')
+            self._update_analytics(text)
         except Exception as e:
             log(f"Type error: {e}")
 
-    def _trigger_ai_edit(self):
+    def _update_analytics(self, text):
+        if not text:
+            return
+        words = len(text.split())
+        analytics_file = os.path.expanduser('~/.voiceflow_analytics.json')
+        try:
+            if os.path.exists(analytics_file):
+                with open(analytics_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+            else:
+                data = {'total_words': 0, 'sessions': 0}
+            
+            data['total_words'] += words
+            data['sessions'] += 1
+            
+            with open(analytics_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f)
+        except Exception as e:
+            log(f"Failed to update analytics: {e}")
+
+    def _trigger_ai_edit(self, prompt):
         self._is_ai_editing = True
+        try:
+            import winsound
+            import sys, os
+            if getattr(sys, 'frozen', False):
+                b_dir = sys._MEIPASS
+            else:
+                b_dir = os.path.dirname(os.path.abspath(__file__))
+            winsound.PlaySound(os.path.join(b_dir, 'static', 'sounds', 'start.wav'), winsound.SND_FILENAME | winsound.SND_ASYNC)
+        except:
+            pass
         self.overlay.set_state('ai_edit')
         log("AI Edit triggered on selected text...")
         
@@ -400,7 +524,7 @@ class DictationAgent:
                 
             log(f"Selected: \"{selected_text[:30]}...\"")
             
-            new_text = self._enhance_with_llm(selected_text)
+            new_text = self._enhance_with_llm(selected_text, prompt)
             
             # Paste the new text over the selection
             pyperclip.copy(new_text)
@@ -416,6 +540,16 @@ class DictationAgent:
             time.sleep(0.3)
             pyperclip.copy(old_clipboard)
             
+            try:
+                import winsound
+                import sys, os
+                if getattr(sys, 'frozen', False):
+                    b_dir = sys._MEIPASS
+                else:
+                    b_dir = os.path.dirname(os.path.abspath(__file__))
+                winsound.PlaySound(os.path.join(b_dir, 'static', 'sounds', 'stop.wav'), winsound.SND_FILENAME | winsound.SND_ASYNC)
+            except:
+                pass
             log("AI Edit complete.")
         except Exception as e:
             log(f"AI Edit error: {e}")
@@ -429,13 +563,6 @@ class DictationAgent:
         self.hotkey = {k1, k2}
         self.keys_pressed.clear()
         log(f"Hotkey set to: {self.hotkey}")
-
-    def set_ai_hotkey(self, key1, key2):
-        k1 = _MODIFIER_MAP.get(key1.lower(), key1.lower())
-        k2 = _MODIFIER_MAP.get(key2.lower(), key2.lower())
-        self.ai_hotkey = {k1, k2}
-        self.keys_pressed.clear()
-        log(f"AI Hotkey set to: {self.ai_hotkey}")
 
     def set_startup(self, enabled):
         self.run_at_startup = enabled
@@ -465,15 +592,13 @@ class DictationAgent:
         keys = list(self.hotkey)
         while len(keys) < 2:
             keys.append(keys[0] if keys else 'ctrl')
-        ai_keys = list(self.ai_hotkey)
-        while len(ai_keys) < 2:
-            ai_keys.append(ai_keys[0] if ai_keys else 'ctrl')
         return {
             'status': self.status,
             'hotkey': keys[:2],
-            'ai_hotkey': ai_keys[:2],
+            'ai_presets': self.ai_presets,
             'api_key': self.api_key,
-            'custom_prompt': self.custom_prompt,
             'default_prompt': DEFAULT_PROMPT,
-            'run_at_startup': self.run_at_startup
+            'run_at_startup': self.run_at_startup,
+            'use_local_llm': getattr(self, 'use_local_llm', False),
+            'dictation_language': getattr(self, 'dictation_language', 'auto')
         }

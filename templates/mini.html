@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoiceFlow Mini</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            margin: 0;
+            padding: 10px;
+            background: rgba(30, 30, 46, 0.85); /* Transparent glass */
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .drag-region {
+            /* PyWebView property to allow dragging borderless window */
+            -webkit-app-region: drag;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: -1;
+        }
+        #mini-status {
+            font-weight: bold;
+            color: #cdd6f4;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            pointer-events: none; /* Let drag pass through */
+        }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: var(--text-muted);
+        }
+        .status-dot.listening {
+            background-color: #a6e3a1;
+            box-shadow: 0 0 10px #a6e3a1;
+        }
+        .status-dot.processing {
+            background-color: #f9e2af;
+            box-shadow: 0 0 10px #f9e2af;
+        }
+        .btn-mini {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text);
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            -webkit-app-region: no-drag; /* Buttons shouldn't drag window */
+        }
+        .btn-mini:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+    </style>
+</head>
+<body>
+    <div class="drag-region"></div>
+    <div id="mini-status">
+        <div class="status-dot" id="mini-dot"></div>
+        <span id="mini-text">Idle</span>
+    </div>
+    <button class="btn-mini" onclick="switchToMain()">⛶ Dashboard</button>
+
+    <script>
+        function switchToMain() {
+            if (window.pywebview && window.pywebview.api) {
+                window.pywebview.api.switch_to_main();
+            } else {
+                console.log("PyWebView API not available.");
+            }
+        }
+
+        function pollStatus() {
+            fetch('/api/status')
+                .then(r => r.json())
+                .then(data => {
+                    const status = data.status;
+                    const dot = document.getElementById('mini-dot');
+                    const text = document.getElementById('mini-text');
+                    
+                    dot.className = 'status-dot'; // reset
+                    
+                    if (status === 'listening') {
+                        dot.classList.add('listening');
+                        text.innerText = 'Listening...';
+                        text.style.color = '#a6e3a1';
+                    } else if (status === 'processing') {
+                        dot.classList.add('processing');
+                        text.innerText = 'Processing...';
+                        text.style.color = '#f9e2af';
+                    } else {
+                        text.innerText = 'Idle';
+                        text.style.color = '#cdd6f4';
+                    }
+                })
+                .catch(() => {});
+        }
+        setInterval(pollStatus, 1000);
+        pollStatus();
+    </script>
+</body>
+</html>

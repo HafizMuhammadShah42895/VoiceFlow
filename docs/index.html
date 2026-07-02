@@ -5,33 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VoiceFlow - AI Dictation Everywhere</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="background-effects">
         <div class="glow-orb purple"></div>
         <div class="glow-orb blue"></div>
+        <div class="grid-overlay"></div>
     </div>
 
     <header>
-        <div class="logo" style="display: flex; align-items: center;">
-            <img src="assets/logo_final.png" alt="VoiceFlow Logo" style="height: 45px; mix-blend-mode: screen;">
+        <div class="logo">
+            <img src="assets/logo_final.png" alt="VoiceFlow Logo" style="height: 40px; mix-blend-mode: screen;">
         </div>
         <nav>
-            <a href="#why">Why VoiceFlow?</a>
+            <a href="#use-cases">Use Cases</a>
             <a href="#features">Features</a>
+            <a href="#privacy">Privacy</a>
             <a href="#about">About</a>
-            <a href="#download" class="btn-primary-outline">Download</a>
+            <a href="#download" class="btn-primary-outline">Download Free</a>
         </nav>
     </header>
 
     <main>
+        <!-- Hero Section -->
         <section class="hero">
+            <div class="hero-badge">VoiceFlow V3 is now live ✨</div>
             <h1>Speak freely. Polish instantly. <br><span class="gradient-text">Type perfectly.</span></h1>
-            <p>VoiceFlow is a global desktop app that lets you dictate lightning-fast across any application, then uses AI to instantly polish your grammar. No copying and pasting needed.</p>
+            <p>A frictionless, global desktop application that lets you dictate lightning-fast across any app, then uses AI to instantly perfect your grammar. No copying, no pasting, no context switching.</p>
             
             <div class="download-section" id="download">
-                <h2>Get VoiceFlow (Free)</h2>
                 <div class="button-group">
                     <a href="https://github.com/HafizMuhammadShah42895/VoiceFlow/releases/latest/download/VoiceFlow_Setup.exe" class="btn-download windows">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M2,22L11,20.8V12H2V22M12,20.7L22,19.3V12H12V20.7M22,4.7L12,3.3V11H22V4.7M11,4.8L2,3.8V11H11V4.8Z"/></svg>
@@ -40,88 +43,144 @@
                             <small>Windows 10/11 (.exe)</small>
                         </div>
                     </a>
-                    
-                    <!-- TEMPORARILY HIDDEN UNTIL MAC AND LINUX BUILDS ARE STABLE
-                    <a href="https://github.com/HafizMuhammadShah42895/VoiceFlow/releases/latest/download/VoiceFlow_Mac.zip" class="btn-download mac">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm3.3 14.5c-.326.134-.783.33-1.378.33-1.6 0-2.613-.913-2.613-2.695v-3.712H9.84v-1.125h1.468v-2.07l1.716-.51v2.58h2.007v1.125h-2.007v3.582c0 .944.385 1.34 1.106 1.34.335 0 .61-.06.77-.123v1.278z"/></svg>
-                        <div>
-                            <span>Download for Mac</span>
-                            <small>macOS 12+ (.dmg)</small>
-                        </div>
-                    </a>
-
-                    <a href="https://github.com/HafizMuhammadShah42895/VoiceFlow/releases/latest/download/VoiceFlow_Linux" class="btn-download linux">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M14.65,19.66c-.19.46-.72.68-1.2.5-.47-.19-.69-.71-.5-1.18.29-.69.76-1.5,1.06-2.09.28-.55.77-1.37,1.21-1.67.57-.39,1.15-.3,1.6.09.43.37.52,1,.27,1.67-.32.86-1.78,1.69-2.44,2.68M10.35,19.66c.19.46.72.68,1.2.5.47-.19.69-.71.5-1.18-.29-.69-.76-1.5-1.06-2.09-.28-.55-.77-1.37-1.21-1.67-.57-.39-1.15-.3-1.6.09-.43.37-.52,1-.27,1.67.32.86,1.78,1.69,2.44,2.68M18.89,12.75c-1.31-2.9-3.93-3.69-3.93-3.69-.33-.08-.73-.24-1.23-.42,0,0-1.23-6.64-1.73-6.64-.5,0-1.73,6.64-1.73,6.64-.5.18-.9.34-1.23.42,0,0-2.62.79-3.93,3.69-.73,1.62-.23,4.19-.23,4.19.45-1.5,1.52-1.92,1.52-1.92s.11.83-.02,1.61c-.13.78-.34,1.07-.34,1.07,0,0-.73,1.38-1.07,1.93-.34.55-.42,1.25-.13,1.74.29.49.88.58,1.4.38.52-.2,1.38-.9,1.7-1.09s.71-.24,1.11-.2c.4.04,1.04.28,1.54.49.5.21,1.18.21,1.68,0,.5-.21,1.14-.45,1.54-.49.4-.04.79.01,1.11.2s1.18.89,1.7,1.09c.52.2,1.11.11,1.4-.38.29-.49.21-1.19-.13-1.74-.34-.55-1.07-1.93-1.07-1.93,0,0-.21-.29-.34-1.07-.13-.78-.02-1.61-.02-1.61s1.07.42,1.52,1.92c0,0,.5-2.57-.23-4.19M14,10c-.55,0-1-.45-1-1s.45-1,1-1,1,.45,1,1-.45,1-1,1M10,10c-.55,0-1-.45-1-1s.45-1,1-1,1,.45,1,1-.45,1-1,1Z"/></svg>
-                        <div>
-                            <span>Download for Linux</span>
-                            <small>Ubuntu/Debian (Standalone)</small>
-                        </div>
-                    </a>
-                    -->
                 </div>
-                <p class="github-note">Open Source & powered by GitHub Actions</p>
+                <p class="github-note">100% Free & Open Source</p>
             </div>
         </section>
 
-        <section id="why" class="why-section">
-            <div class="content-wrapper text-center">
-                <h2>Why We Built VoiceFlow</h2>
-                <p class="lead">Typing long emails or documents by hand is slow and exhausting. While traditional dictation software exists, it is often clunky, requires you to dictate into a separate window, manually copy-paste the text, and painstakingly fix grammatical errors by hand.</p>
-                <p class="lead">We built VoiceFlow to eliminate this friction entirely. VoiceFlow is a frictionless, OS-level integration. There is no window to switch to. You simply hold a hotkey, speak, and perfectly formatted text is typed directly into whatever app you are currently using—whether that's Word, Chrome, or your IDE.</p>
+        <!-- Use Cases Section -->
+        <section id="use-cases" class="section-container">
+            <div class="section-header">
+                <h2>Designed for <span class="gradient-text">Professionals</span></h2>
+                <p>VoiceFlow seamlessly integrates into your existing workflow, saving you hours of typing every week.</p>
             </div>
-        </section>
-
-        <section id="benefits" class="benefits-section">
-            <div class="content-wrapper">
-                <h2 class="text-center">The Benefits</h2>
-                <div class="benefits-grid">
-                    <div class="benefit-card">
-                        <div class="benefit-icon">🚀</div>
-                        <h3>Unmatched Speed</h3>
-                        <p>By typing at the speed of speech and utilizing AI to instantly rewrite your thoughts, you can cut your writing time in half. VoiceFlow eliminates the delay between thinking and creating.</p>
-                    </div>
-                    <div class="benefit-card">
-                        <div class="benefit-icon">✨</div>
-                        <h3>Guaranteed Professionalism</h3>
-                        <p>Never send an email with a typo again. The Llama-3 AI acts as your personal editor, instantly restructuring messy thoughts into clear, professional, and grammatically perfect English.</p>
-                    </div>
-                    <div class="benefit-card">
-                        <div class="benefit-icon">🔒</div>
-                        <h3>Total Privacy</h3>
-                        <p>The core speech-to-text transcription is powered by a locally-hosted AI model (Faster-Whisper). Your voice is processed directly on your computer's hardware, meaning your private conversations are never uploaded to the cloud.</p>
-                    </div>
+            <div class="use-cases-grid">
+                <div class="use-case-card">
+                    <div class="use-case-icon">👨‍⚕️</div>
+                    <h3>Medical & Legal Professionals</h3>
+                    <p>Dictate complex patient notes, legal briefs, and documentation directly into your proprietary software. Whisper's incredible accuracy catches industry-specific jargon effortlessly.</p>
+                </div>
+                <div class="use-case-card">
+                    <div class="use-case-icon">💻</div>
+                    <h3>Software Engineers</h3>
+                    <p>Stop typing long PR descriptions and Jira tickets. Hold the hotkey, explain your architectural changes naturally, and let the AI instantly format it into a professional summary.</p>
+                </div>
+                <div class="use-case-card">
+                    <div class="use-case-icon">✍️</div>
+                    <h3>Writers & Creators</h3>
+                    <p>Get into a flow state. Brainstorm ideas out loud directly into Notion or Obsidian, and use custom AI presets to instantly restructure your spoken ramblings into cohesive paragraphs.</p>
                 </div>
             </div>
         </section>
 
-        <section id="features" class="features-grid">
-            <div class="feature-card">
-                <h3>Global Hotkeys</h3>
-                <p>Works inside any app. Press <strong>Alt+Shift</strong> to speak, and VoiceFlow types directly into Word, Chrome, ChatGPT, or your IDE.</p>
+        <!-- Detailed Features Section -->
+        <section id="features" class="section-container">
+            <div class="section-header">
+                <h2>A Masterclass in <span class="gradient-text">UX Design</span></h2>
+                <p>Every feature in VoiceFlow was engineered to completely eliminate friction between your thoughts and the screen.</p>
             </div>
-            <div class="feature-card">
-                <h3>Floating UI Overlay</h3>
-                <p>Never wonder if it's listening. A sleek overlay stays on top of your screen to show real-time processing status.</p>
+            
+            <div class="feature-showcase left">
+                <div class="feature-text">
+                    <div class="tag">Seamless Integration</div>
+                    <h3>Global OS-Level Hotkeys</h3>
+                    <p>Traditional dictation tools force you into a separate window. VoiceFlow lives in the background. Press <strong>Alt+Shift</strong> anywhere—in Chrome, Word, Slack, or VS Code—speak, and watch the text type itself.</p>
+                    <ul class="feature-list">
+                        <li>No context switching</li>
+                        <li>Works across all applications</li>
+                        <li>Zero copy-pasting required</li>
+                    </ul>
+                </div>
+                <div class="feature-visual">
+                    <div class="mockup-window">
+                        <div class="mockup-header">
+                            <span></span><span></span><span></span>
+                        </div>
+                        <div class="mockup-body">
+                            [Alt+Shift Held] Listening...<br><br>
+                            > "I just finished the deployment, let's review the logs tomorrow."
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="feature-card">
-                <h3>Selection-Based AI Polish</h3>
-                <p>Highlight any messy text and press <strong>Ctrl+Shift</strong>. Llama-3 rewrites your grammar instantly at the speed of light.</p>
+
+            <div class="feature-showcase right">
+                <div class="feature-visual">
+                    <div class="mockup-window dark">
+                        <div class="mockup-body text-center">
+                            <span class="ai-badge">✨ AI Magic</span><br><br>
+                            "yeah so basically um the server crashed cause of out of memory"<br>
+                            ↓<br>
+                            <strong style="color:var(--text-main)">"The server crashed due to an Out of Memory (OOM) exception."</strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="feature-text">
+                    <div class="tag">Intelligent Editing</div>
+                    <h3>Selection-Based AI Feature</h3>
+                    <p>Wrote a messy paragraph? Simply highlight the text, press <strong>Ctrl+Shift</strong>, and VoiceFlow will instantly replace your highlighted text with a professionally structured, grammatically perfect rewrite using AI.</p>
+                    <ul class="feature-list">
+                        <li>Instant inline replacements</li>
+                        <li>Create unlimited custom AI prompts</li>
+                        <li>Assign different hotkeys to different prompts (Translate, Summarize, Rewrite)</li>
+                    </ul>
+                </div>
             </div>
-            <div class="feature-card">
-                <h3>Custom Prompts</h3>
-                <p>Take full control of the AI. Write your own custom system prompt to instruct the AI exactly how it should format or rewrite your text.</p>
+
+            <div class="feature-showcase left">
+                <div class="feature-text">
+                    <div class="tag">Powerful Utilities</div>
+                    <h3>The Ultimate Desktop Toolkit</h3>
+                    <p>VoiceFlow V3 isn't just for live dictation. We've packed it with robust features to handle any audio task effortlessly.</p>
+                    <ul class="feature-list">
+                        <li><strong>Drag & Drop Transcription:</strong> Drop `.mp4` or `.wav` files into the app for instant offline transcriptions of entire meetings.</li>
+                        <li><strong>Mini-Mode Widget:</strong> Shrink the app into a beautiful, floating glass widget that stays out of your way.</li>
+                        <li><strong>Intelligent Dashboard:</strong> Track your word count and time saved with built-in analytics.</li>
+                        <li><strong>Multi-Language:</strong> Native support for English, Spanish, French, German, Urdu, Hindi, and Arabic.</li>
+                    </ul>
+                </div>
+                <div class="feature-visual">
+                    <div class="mockup-grid">
+                        <div class="grid-box">Drop Audio File</div>
+                        <div class="grid-box">Mini Widget</div>
+                        <div class="grid-box">Analytics Tracker</div>
+                        <div class="grid-box">Multi-Language</div>
+                    </div>
+                </div>
             </div>
         </section>
 
+        <!-- Privacy Section -->
+        <section id="privacy" class="section-container privacy-banner">
+            <div class="privacy-content">
+                <div class="privacy-icon">🔒</div>
+                <h2>Zero-Trust Privacy Protocol</h2>
+                <p class="lead">We believe your voice data belongs to you. VoiceFlow is architected for maximum security.</p>
+                <div class="privacy-grid">
+                    <div class="privacy-card">
+                        <h4>Locally Hosted Dictation</h4>
+                        <p>The core Whisper engine runs directly on your hardware. Your voice recordings <strong>never</strong> leave your device and are processed entirely offline.</p>
+                    </div>
+                    <div class="privacy-card">
+                        <h4>Explicit AI Control</h4>
+                        <p>When using cloud AI, <strong>only the exact text you manually highlight</strong> is sent to the Groq API. Nothing else is ever transmitted.</p>
+                    </div>
+                    <div class="privacy-card">
+                        <h4>100% Air-Gapped Mode</h4>
+                        <p>For ultimate enterprise security, enable <strong>Offline Mode</strong>. VoiceFlow will connect to your local <strong>Ollama</strong> instance, severing all cloud ties permanently.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- About Section -->
         <section id="about" class="about-section">
             <div class="about-content">
-                <div class="about-avatar">
-                    <span>HM</span>
-                </div>
+                <div class="about-avatar"><span>HM</span></div>
                 <div class="about-text">
                     <h2>About the Developer</h2>
                     <p>Hi, I'm <strong>Hafiz Muhammad</strong>, a passionate software developer dedicated to building tools that supercharge productivity. VoiceFlow was born out of a desire to make dictation and AI grammar correction seamless across any operating system.</p>
-                    <a href="https://hafizmuhammadshah42895.github.io/hafizmuhammad.dev/" target="_blank" class="btn-portfolio">Visit My Portfolio</a>
+                    <a href="https://hafizmuhammadshah42895.github.io/hafizmuhammad.dev/" target="_blank" class="btn-primary-outline">Visit My Portfolio</a>
                 </div>
             </div>
         </section>

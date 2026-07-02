@@ -8,105 +8,202 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <div class="glass-container">
-        <header>
-            <div class="logo">
-                <img src="/static/img/logo_final.png" alt="VoiceFlow Logo" style="height: 45px; mix-blend-mode: screen;">
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <img src="/static/img/logo_final.png" alt="VoiceFlow Logo">
             </div>
-            <div class="status-badge" id="status-badge">
-                <span class="status-dot" id="status-dot"></span>
-                <span id="status-text">Idle</span>
+            
+            <div class="nav-menu">
+                <a href="#" class="nav-item active" onclick="switchTab('dashboard-tab', this); return false;">🎛️ Settings</a>
+                <a href="#" class="nav-item" onclick="switchTab('transcription-tab', this); return false;">🎙️ File Transcription</a>
+                <a href="#" class="nav-item" onclick="switchTab('instructions-tab', this); return false;">📖 How to Use</a>
             </div>
-        </header>
 
-        <main>
-            <section class="card">
-                <h2>Settings Dashboard</h2>
-                <p class="subtitle">Configure your dictation and AI enhancement shortcuts.</p>
-                
-                <div class="settings-grid">
-                    <div class="setting-item">
-                        <label>Main Dictation Hotkey</label>
-                        <div class="hotkey-inputs">
-                            <select id="hotkey-1" class="hotkey-select">
-                                <option value="alt" selected>Alt</option>
-                                <option value="shift">Shift</option>
-                                <option value="ctrl">Ctrl</option>
-                                <option value="cmd">Win</option>
-                            </select>
-                            <span class="plus">+</span>
-                            <select id="hotkey-2" class="hotkey-select">
-                                <option value="alt">Alt</option>
-                                <option value="shift" selected>Shift</option>
-                                <option value="ctrl">Ctrl</option>
-                                <option value="space">Space</option>
-                            </select>
-                        </div>
-                    </div>
+            <div class="sidebar-footer">
+                <div class="links">
+                    <a href="https://hafizmuhammadshah42895.github.io/VoiceFlow/" target="_blank">🌐 Official Website</a>
+                    <a href="https://hafizmuhammadshah42895.github.io/hafizmuhammad.dev/" target="_blank">👨‍💻 About Developer</a>
+                </div>
+                <div class="version">VoiceFlow v3.0</div>
+            </div>
+        </aside>
 
-                    <div class="setting-item">
-                        <label>AI Polish Hotkey</label>
-                        <div class="hotkey-inputs">
-                            <select id="ai-key-1" class="hotkey-select">
-                                <option value="alt">Alt</option>
-                                <option value="shift">Shift</option>
-                                <option value="ctrl">Ctrl</option>
-                                <option value="cmd">Win</option>
-                            </select>
-                            <span class="plus">+</span>
-                            <select id="ai-key-2" class="hotkey-select">
-                                <option value="alt">Alt</option>
-                                <option value="shift">Shift</option>
-                                <option value="ctrl">Ctrl</option>
-                                <option value="space">Space</option>
-                            </select>
-                        </div>
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-header">
+                <div>
+                    <h1>Welcome back</h1>
+                    <p class="subtitle" style="margin-bottom:0;">Configure VoiceFlow exactly how you want it.</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <button onclick="switchToMini()" class="btn-secondary">⛶ Mini Mode</button>
+                    <div class="status-badge" id="status-badge">
+                        <span class="status-dot" id="status-dot"></span>
+                        <span id="status-text">Idle</span>
                     </div>
-                    
-                    <div class="setting-item full-width">
-                        <label for="startup-select">Auto-Start with Windows</label>
-                        <select id="startup-select" class="hotkey-select">
-                            <option value="true">Yes (Always ready in the background)</option>
-                            <option value="false">No (I will open it manually)</option>
-                        </select>
-                        <small>Automatically runs VoiceFlow silently when you turn on your PC.</small>
-                    </div>
+                </div>
+            </header>
 
-                    <div class="setting-item full-width">
-                        <label for="api-key">Groq API Key</label>
-                        <input type="password" id="api-key" placeholder="gsk_..." class="api-input">
-                        <small>Required for AI grammar fixing. Get one at console.groq.com.</small>
+            <div class="content-scrollable">
+                <!-- Analytics Banner -->
+                <div class="analytics-banner">
+                    <div class="stat">
+                        <span class="stat-value" id="stat-words">0</span>
+                        <span class="stat-label">Words Dictated</span>
                     </div>
-
-                    <div class="setting-item full-width">
-                        <div class="prompt-header">
-                            <label for="custom-prompt">AI System Prompt</label>
-                            <a href="#" id="reset-prompt" class="reset-link">Reset to Default</a>
-                        </div>
-                        <textarea id="custom-prompt" class="prompt-area" rows="4" placeholder="Enter instructions for the AI..."></textarea>
-                        <small>Instruct the AI exactly how to rewrite your text.</small>
+                    <div class="stat">
+                        <span class="stat-value" id="stat-time">0m</span>
+                        <span class="stat-label">Time Saved</span>
                     </div>
                 </div>
 
-                <button id="hotkey-save" class="btn-primary">Apply Settings</button>
-            </section>
+                <!-- Tab: Settings -->
+                <div id="dashboard-tab" class="tab-content active">
+                    <section class="card settings-section">
+                        <h3>Core Settings</h3>
+                        <div class="settings-grid">
+                            <div class="setting-item full-width">
+                                <label>Main Dictation Hotkey</label>
+                                <div class="hotkey-inputs">
+                                    <select id="hotkey-1" class="hotkey-select">
+                                        <option value="alt" selected>Alt</option>
+                                        <option value="shift">Shift</option>
+                                        <option value="ctrl">Ctrl</option>
+                                        <option value="cmd">Win</option>
+                                    </select>
+                                    <span class="plus">+</span>
+                                    <select id="hotkey-2" class="hotkey-select">
+                                        <option value="alt">Alt</option>
+                                        <option value="shift" selected>Shift</option>
+                                        <option value="ctrl">Ctrl</option>
+                                        <option value="space">Space</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <label for="startup-select">Auto-Start with Windows</label>
+                                <select id="startup-select" class="hotkey-select">
+                                    <option value="true">Yes</option>
+                                    <option value="false">No</option>
+                                </select>
+                            </div>
 
-            <section class="instructions">
-                <h3>How to use VoiceFlow</h3>
-                <div class="step">
-                    <div class="step-num">1</div>
-                    <p>Hold your <strong>Dictation Hotkey</strong> anywhere to speak. Release to paste.</p>
+                            <div class="setting-item">
+                                <label for="language-select">Dictation Language</label>
+                                <select id="language-select" class="hotkey-select">
+                                    <option value="auto">Auto-Detect</option>
+                                    <option value="en">English</option>
+                                    <option value="es">Spanish</option>
+                                    <option value="fr">French</option>
+                                    <option value="de">German</option>
+                                    <option value="ur">Urdu</option>
+                                    <option value="hi">Hindi</option>
+                                    <option value="ar">Arabic</option>
+                                </select>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="card settings-section">
+                        <h3>AI & Privacy</h3>
+                        <div class="settings-grid">
+                            <div class="setting-item full-width">
+                                <label for="local-llm-select">Offline Mode (Local AI)</label>
+                                <select id="local-llm-select" class="hotkey-select">
+                                    <option value="false">Off - Use Groq Cloud (Faster, API key needed)</option>
+                                    <option value="true">On - Use Local Ollama (100% Private, 0 latency)</option>
+                                </select>
+                            </div>
+
+                            <div class="setting-item full-width">
+                                <label for="api-key">Groq API Key</label>
+                                <input type="password" id="api-key" placeholder="gsk_..." class="api-input">
+                            </div>
+
+                            <div class="setting-item full-width">
+                                <div class="prompt-header">
+                                    <label>Custom AI Presets</label>
+                                    <a href="#" id="add-preset-btn" class="reset-link">+ Add New Preset</a>
+                                </div>
+                                <div id="presets-container" class="presets-list">
+                                    <!-- JS will populate presets here -->
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <button id="hotkey-save" class="btn-primary" style="margin-top: 10px;">Apply Settings</button>
                 </div>
-                <div class="step">
-                    <div class="step-num">2</div>
-                    <p>Highlight any text and press your <strong>AI Polish Hotkey</strong> to instantly fix it.</p>
+
+                <!-- Tab: Transcription -->
+                <div id="transcription-tab" class="tab-content">
+                    <section class="card drop-zone" id="drop-zone">
+                        <div class="drop-content">
+                            <h3 style="margin-top:0; margin-bottom:20px; color:var(--text-main);">🎙️ Offline File Transcription</h3>
+                            <p class="subtitle" style="margin-bottom: 25px;">Drag & drop an audio/video file (.mp3, .wav, .m4a, .mp4) here, or click to upload.</p>
+                            <input type="file" id="file-upload" accept="audio/*,video/*,.m4a,.mp4,.mp3,.wav" style="display:none;">
+                            <button class="btn-primary" onclick="document.getElementById('file-upload').click()">Browse Files</button>
+                            
+                            <div id="upload-status" style="margin-top: 25px; font-weight: 600; color: var(--primary); display:none; align-items: center; justify-content: center; gap: 10px;">
+                                <div class="loader"></div>
+                                <span id="upload-status-text">Processing audio... this may take a few minutes.</span>
+                            </div>
+
+                            <div id="transcript-container" style="display:none; margin-top: 25px; text-align: left; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 12px; border: 1px solid var(--border);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                    <h4 style="margin: 0; color: var(--text-main);">📄 Transcription Result</h4>
+                                    <button class="btn-secondary" style="padding: 6px 14px; font-size: 0.85rem; background:rgba(255,255,255,0.1);" onclick="copyTranscript()">📋 Copy</button>
+                                </div>
+                                <textarea id="transcript-result" class="prompt-area" style="min-height: 250px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); width: 100%; box-sizing: border-box;" placeholder="Transcript will appear here..."></textarea>
+                            </div>
+                        </div>
+                    </section>
                 </div>
-            </section>
+
+                <!-- Tab: Instructions -->
+                <div id="instructions-tab" class="tab-content">
+                    <section class="card">
+                        <h3 style="margin-bottom: 20px; font-size:18px; color:var(--primary);">📖 How to use VoiceFlow</h3>
+                        <div class="step">
+                            <div class="step-num">1</div>
+                            <p>Hold your <strong>Dictation Hotkey</strong> (default Alt+Shift) anywhere to speak. Release the keys to let VoiceFlow automatically paste the text into your active app.</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-num">2</div>
+                            <p>Highlight any messy text and press your <strong>AI Feature Hotkey</strong> (default Ctrl+Shift) to instantly rewrite and fix it in place.</p>
+                        </div>
+                    </section>
+
+                    <section class="card privacy-card" style="margin-top: 24px;">
+                        <h3 style="margin-top:0; color: var(--primary); font-size:18px;">🔒 Your Privacy is Guaranteed</h3>
+                        <p style="font-size: 0.95rem; line-height: 1.6; color: var(--text-main); margin-top:15px;">
+                            <strong>All of your audio is processed securely on your own system.</strong> The core dictation and transcription engine runs entirely locally, meaning your voice recordings and audio files <strong>never leave your device</strong>. 
+                        </p>
+                        <p style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 0; margin-top: 15px; color: var(--text-muted);">
+                            When you use the AI feature with Groq, only the specific text you highlight is sent to the Groq API for correction. If you require absolute zero-trust privacy, you can switch to <strong>Offline Mode (Local AI)</strong> and use <strong>Ollama</strong> (a completely open-source local model). With Ollama enabled, 100% of your data stays on your machine and nothing is ever sent to the cloud!
+                        </p>
+                    </section>
+                </div>
+            </div>
         </main>
         
         <div id="toast" class="toast" role="alert" aria-live="polite"></div>
     </div>
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        function switchTab(tabId, element) {
+            // Remove active from all tabs
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            
+            // Add active to selected
+            document.getElementById(tabId).classList.add('active');
+            element.classList.add('active');
+        }
+    </script>
 </body>
 </html>
