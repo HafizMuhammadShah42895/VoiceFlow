@@ -63,6 +63,8 @@ class FloatingOverlay:
         elif self.current_state == 'ai_edit':
             self.label.config(text="✨ AI Rewrite...", fg="#cba6f7")
             self.root.deiconify()
+        elif self.current_state == 'error':
+            pass
         else:
             self.root.withdraw()
             
@@ -70,6 +72,11 @@ class FloatingOverlay:
 
     def set_state(self, state):
         self.current_state = state
+
+    def show_error(self, message):
+        self.current_state = 'error'
+        self.label.config(text=message, fg="#f38ba8")
+        self.root.deiconify()
 
 class DictationAgent:
     def __init__(self):
@@ -403,11 +410,17 @@ class DictationAgent:
                     return polished
             except Exception as e:
                 log(f"Local Ollama API Error: {e}")
-                return text
+                self.overlay.show_error("❌ Ollama Offline!")
+                import time
+                time.sleep(2.5)
+                return None
 
         if not self.api_key:
             log("API key missing. Skipping AI enhancement.")
-            return text
+            self.overlay.show_error("❌ API Key Missing!")
+            import time
+            time.sleep(2.5)
+            return None
         try:
             from groq import Groq
             client = Groq(api_key=self.api_key)
@@ -431,7 +444,10 @@ class DictationAgent:
             return polished
         except Exception as e:
             log(f"Groq API Error: {e}")
-            return text
+            self.overlay.show_error("❌ Groq API Error!")
+            import time
+            time.sleep(2.5)
+            return None
 
     def _type_text(self, text):
         try:
@@ -526,6 +542,11 @@ class DictationAgent:
             
             new_text = self._enhance_with_llm(selected_text, prompt)
             
+            if new_text is None:
+                log("AI Edit aborted due to error.")
+                pyperclip.copy(old_clipboard)
+                return
+            
             # Paste the new text over the selection
             pyperclip.copy(new_text)
             
@@ -575,7 +596,10 @@ class DictationAgent:
                 else:
                     # Get absolute path to app.py assuming the agent is imported there
                     import os
-                    path = f'"{sys.executable}" "{os.path.abspath(sys.argv[0])}"'
+                    python_exe = sys.executable
+                    if python_exe.lower().endswith("python.exe"):
+                        python_exe = python_exe[:-10] + "pythonw.exe"
+                    path = f'"{python_exe}" "{os.path.abspath(sys.argv[0])}"'
                 winreg.SetValueEx(key, "VoiceFlow", 0, winreg.REG_SZ, path)
                 log("Added to Windows Startup.")
             else:
