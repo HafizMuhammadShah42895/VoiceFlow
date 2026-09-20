@@ -3,10 +3,20 @@
 
     const hotkey1 = document.getElementById('hotkey-1');
     const hotkey2 = document.getElementById('hotkey-2');
+    const contextHotkey1 = document.getElementById('context-hotkey-1');
+    const contextHotkey2 = document.getElementById('context-hotkey-2');
+    const contextPrompt = document.getElementById('context-prompt');
+    const resetContextPromptBtn = document.getElementById('reset-context-prompt-btn');
+    const mainDictationAiToggle = document.getElementById('main-dictation-ai-toggle');
     const apiKey = document.getElementById('api-key');
-    const startupSelect = document.getElementById('startup-select');
+    const startupToggle = document.getElementById('startup-toggle');
     const languageSelect = document.getElementById('language-select');
-    const localLlmSelect = document.getElementById('local-llm-select');
+    const transcriptionEngineSelect = document.getElementById('transcription-engine-select');
+    const customVocabulary = document.getElementById('custom-vocabulary');
+    const outputModeSelect = document.getElementById('output-mode-select');
+    const contextAwareSelect = document.getElementById('context-aware-select');
+    const fillerWordsToggle = document.getElementById('filler-words-toggle');
+    const localLlmToggle = document.getElementById('local-llm-toggle');
     const hotkeySave = document.getElementById('hotkey-save');
     const statusDot = document.getElementById('status-dot');
     const statusText = document.getElementById('status-text');
@@ -51,21 +61,21 @@
                     <button class="remove-preset-btn" data-idx="${index}">Remove</button>
                 </div>
                 <div class="hotkey-inputs">
-                    <select class="hotkey-select p-key-1" data-idx="${index}">
+                    <select class="input-field p-key-1" data-idx="${index}">
                         <option value="alt" ${k1==='alt'?'selected':''}>Alt</option>
                         <option value="shift" ${k1==='shift'?'selected':''}>Shift</option>
                         <option value="ctrl" ${k1==='ctrl'?'selected':''}>Ctrl</option>
                         <option value="cmd" ${k1==='cmd'?'selected':''}>Win</option>
                     </select>
                     <span class="plus">+</span>
-                    <select class="hotkey-select p-key-2" data-idx="${index}">
+                    <select class="input-field p-key-2" data-idx="${index}">
                         <option value="alt" ${k2==='alt'?'selected':''}>Alt</option>
                         <option value="shift" ${k2==='shift'?'selected':''}>Shift</option>
                         <option value="ctrl" ${k2==='ctrl'?'selected':''}>Ctrl</option>
                         <option value="space" ${k2==='space'?'selected':''}>Space</option>
                     </select>
                 </div>
-                <textarea class="prompt-area preset-prompt-input" rows="3" data-idx="${index}">${preset.prompt}</textarea>
+                <textarea class="input-field prompt-area preset-prompt-input" rows="3" data-idx="${index}">${preset.prompt}</textarea>
             `;
             presetsContainer.appendChild(card);
         });
@@ -94,21 +104,53 @@
         fetch('/api/status')
             .then(r => r.json())
             .then(data => {
-                if (data.hotkey && data.hotkey.length === 2) {
+                if (data.hotkey && data.hotkey.length >= 2) {
                     hotkey1.value = data.hotkey[0];
                     hotkey2.value = data.hotkey[1];
+                }
+                if (data.context_hotkey && data.context_hotkey.length >= 2 && contextHotkey1) {
+                    contextHotkey1.value = data.context_hotkey[0];
+                    contextHotkey2.value = data.context_hotkey[1];
                 }
                 if (data.api_key !== undefined) {
                     apiKey.value = data.api_key;
                 }
-                if (data.run_at_startup !== undefined) {
-                    startupSelect.value = data.run_at_startup ? "true" : "false";
+                if (data.run_at_startup !== undefined && startupToggle) {
+                    startupToggle.checked = data.run_at_startup;
                 }
-                if (data.use_local_llm !== undefined) {
-                    localLlmSelect.value = data.use_local_llm ? "true" : "false";
+                if (data.use_local_llm !== undefined && localLlmToggle) {
+                    localLlmToggle.checked = data.use_local_llm;
                 }
-                if (data.dictation_language !== undefined) {
+                if (data.transcription_engine !== undefined && transcriptionEngineSelect) {
+                    transcriptionEngineSelect.value = data.transcription_engine;
+                }
+                if (data.custom_vocabulary !== undefined && customVocabulary) {
+                    customVocabulary.value = data.custom_vocabulary;
+                }
+                if (data.context_aware_dictation !== undefined && contextAwareSelect) {
+                    contextAwareSelect.value = data.context_aware_dictation ? "true" : "false";
+                }
+                if (data.output_mode !== undefined && outputModeSelect) {
+                    outputModeSelect.value = data.output_mode;
+                }
+                if (data.remove_filler_words !== undefined && fillerWordsToggle) {
+                    fillerWordsToggle.checked = data.remove_filler_words;
+                }
+                if (data.main_dictation_ai !== undefined && mainDictationAiToggle) {
+                    mainDictationAiToggle.checked = data.main_dictation_ai;
+                }
+                if (data.dictation_language !== undefined && languageSelect) {
                     languageSelect.value = data.dictation_language;
+                }
+                if (data.context_prompt !== undefined && contextPrompt) {
+                    contextPrompt.value = data.context_prompt;
+                    
+                    if (resetContextPromptBtn) {
+                        resetContextPromptBtn.onclick = function(e) {
+                            e.preventDefault();
+                            contextPrompt.value = data.default_context_prompt;
+                        };
+                    }
                 }
                 if (data.ai_presets !== undefined) {
                     presetsData = data.ai_presets;
@@ -125,19 +167,35 @@
             showToast('Keys must be different');
             return;
         }
+        const ck1 = contextHotkey1 ? contextHotkey1.value : 'ctrl';
+        const ck2 = contextHotkey2 ? contextHotkey2.value : 'shift';
         const key = apiKey.value.trim();
-        const runAtStartup = startupSelect.value === "true";
-        const useLocalLlm = localLlmSelect.value === "true";
-        const lang = languageSelect.value;
+        const runAtStartup = startupToggle ? startupToggle.checked : true;
+        const useLocalLlm = localLlmToggle ? localLlmToggle.checked : false;
+        const transcriptionEngine = transcriptionEngineSelect ? transcriptionEngineSelect.value : "local";
+        const customVocab = customVocabulary ? customVocabulary.value : "";
+        const outputMode = outputModeSelect ? outputModeSelect.value : "type";
+        const removeFillerWords = fillerWordsToggle ? fillerWordsToggle.checked : false;
+        const mainDictationAi = mainDictationAiToggle ? mainDictationAiToggle.checked : false;
+        const lang = languageSelect ? languageSelect.value : "auto";
+        const cp = contextPrompt ? contextPrompt.value : "";
 
         fetch('/api/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 key1: k1, key2: k2, 
+                context_key1: ck1,
+                context_key2: ck2,
                 api_key: key, 
                 run_at_startup: runAtStartup,
                 use_local_llm: useLocalLlm,
+                transcription_engine: transcriptionEngine,
+                custom_vocabulary: customVocab,
+                output_mode: outputMode,
+                remove_filler_words: removeFillerWords,
+                main_dictation_ai: mainDictationAi,
+                context_prompt: cp,
                 dictation_language: lang,
                 ai_presets: presetsData
             })

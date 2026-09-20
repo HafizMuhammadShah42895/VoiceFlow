@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VoiceFlow Dashboard</title>
+    <link rel="icon" href="/static/img/logo_icon.jpg" type="image/jpeg">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
@@ -12,19 +13,35 @@
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-logo">
-                <img src="/static/img/logo_final.png" alt="VoiceFlow Logo">
+                <img src="/static/img/logo_icon.jpg" alt="VoiceFlow Logo">
+                <span class="logo-text">VoiceFlow</span>
             </div>
             
             <div class="nav-menu">
-                <a href="#" class="nav-item active" onclick="switchTab('dashboard-tab', this); return false;">🎛️ Settings</a>
-                <a href="#" class="nav-item" onclick="switchTab('transcription-tab', this); return false;">🎙️ File Transcription</a>
-                <a href="#" class="nav-item" onclick="switchTab('instructions-tab', this); return false;">📖 How to Use</a>
+                <a href="#" class="nav-item active" onclick="switchTab('dashboard-tab', this); return false;">
+                    <svg viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    Settings
+                </a>
+                <a href="#" class="nav-item" onclick="switchTab('transcription-tab', this); return false;">
+                    <svg viewBox="0 0 24 24"><path d="M12 2v20"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                    File Transcription
+                </a>
+                <a href="#" class="nav-item" onclick="switchTab('instructions-tab', this); return false;">
+                    <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                    How to Use
+                </a>
             </div>
 
             <div class="sidebar-footer">
                 <div class="links">
-                    <a href="https://hafizmuhammadshah42895.github.io/VoiceFlow/" target="_blank">🌐 Official Website</a>
-                    <a href="https://hafizmuhammadshah42895.github.io/hafizmuhammad.dev/" target="_blank">👨‍💻 About Developer</a>
+                    <a href="https://hafizmuhammadshah42895.github.io/VoiceFlow/" target="_blank">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                        Official Website
+                    </a>
+                    <a href="https://hafizmuhammadshah42895.github.io/hafizmuhammad.dev/" target="_blank">
+                        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                        About Developer
+                    </a>
                 </div>
                 <div class="version">VoiceFlow v3.0</div>
             </div>
@@ -38,7 +55,10 @@
                     <p class="subtitle" style="margin-bottom:0;">Configure VoiceFlow exactly how you want it.</p>
                 </div>
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <button onclick="switchToMini()" class="btn-secondary">⛶ Mini Mode</button>
+                    <button onclick="switchToMini()" class="btn-secondary">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+                        Mini Mode
+                    </button>
                     <div class="status-badge" id="status-badge">
                         <span class="status-dot" id="status-dot"></span>
                         <span id="status-text">Idle</span>
@@ -61,20 +81,61 @@
 
                 <!-- Tab: Settings -->
                 <div id="dashboard-tab" class="tab-content active">
+                    
                     <section class="card settings-section">
-                        <h3>Core Settings</h3>
+                        <div class="card-header">
+                            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                            <h3>Core Hotkeys</h3>
+                        </div>
                         <div class="settings-grid">
                             <div class="setting-item full-width">
-                                <label>Main Dictation Hotkey</label>
+                                <div class="setting-header">
+                                    <div class="setting-label-group">
+                                        <label>Main Dictation</label>
+                                        <div class="tooltip-container">
+                                            <div class="tooltip-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+                                            <div class="tooltip-text">Hold this combination anywhere to dictate text perfectly into your active app.</div>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="hotkey-inputs">
-                                    <select id="hotkey-1" class="hotkey-select">
+                                    <select id="hotkey-1" class="input-field">
                                         <option value="alt" selected>Alt</option>
                                         <option value="shift">Shift</option>
                                         <option value="ctrl">Ctrl</option>
                                         <option value="cmd">Win</option>
+                                        <option value="1">1</option>
                                     </select>
                                     <span class="plus">+</span>
-                                    <select id="hotkey-2" class="hotkey-select">
+                                    <select id="hotkey-2" class="input-field">
+                                        <option value="alt">Alt</option>
+                                        <option value="shift" selected>Shift</option>
+                                        <option value="ctrl">Ctrl</option>
+                                        <option value="space">Space</option>
+                                        <option value="1">1</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="setting-item full-width">
+                                <div class="setting-header">
+                                    <div class="setting-label-group">
+                                        <label>Smart Reply (Context-Aware)</label>
+                                        <div class="tooltip-container">
+                                            <div class="tooltip-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+                                            <div class="tooltip-text">Copy an email/message to your clipboard, then hold this to dictate a professional reply based on the copied context.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="hotkey-inputs">
+                                    <select id="context-hotkey-1" class="input-field">
+                                        <option value="alt">Alt</option>
+                                        <option value="shift">Shift</option>
+                                        <option value="ctrl" selected>Ctrl</option>
+                                        <option value="cmd">Win</option>
+                                    </select>
+                                    <span class="plus">+</span>
+                                    <select id="context-hotkey-2" class="input-field">
                                         <option value="alt">Alt</option>
                                         <option value="shift" selected>Shift</option>
                                         <option value="ctrl">Ctrl</option>
@@ -82,18 +143,104 @@
                                     </select>
                                 </div>
                             </div>
-                            
-                            <div class="setting-item">
-                                <label for="startup-select">Auto-Start with Windows</label>
-                                <select id="startup-select" class="hotkey-select">
-                                    <option value="true">Yes</option>
-                                    <option value="false">No</option>
+                        </div>
+                    </section>
+
+                    <section class="card settings-section">
+                        <div class="card-header">
+                            <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                            <h3>Smart Features</h3>
+                        </div>
+                        <div class="settings-grid">
+                            <div class="setting-item full-width">
+                                <div class="setting-header">
+                                    <div class="setting-label-group">
+                                        <label for="filler-words-toggle">Smart Filler Word Removal</label>
+                                        <div class="tooltip-container">
+                                            <div class="tooltip-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+                                            <div class="tooltip-text">Automatically scrub out "ums", "uhs", and stutters from your dictation using AI.</div>
+                                        </div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="filler-words-toggle">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="setting-item full-width">
+                                <div class="setting-header">
+                                    <div class="setting-label-group">
+                                        <label for="main-dictation-ai-toggle">AI Polish for Normal Dictation</label>
+                                        <div class="tooltip-container">
+                                            <div class="tooltip-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+                                            <div class="tooltip-text">If ON, your normal dictation (Alt+Shift) will be passed through AI for grammar correction. If OFF, dictation will type instantly without AI formatting.</div>
+                                        </div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="main-dictation-ai-toggle">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="setting-item full-width" style="margin-top: 10px;">
+                                <div class="prompt-header" style="margin-bottom: 8px;">
+                                    <div class="setting-label-group">
+                                        <label for="context-prompt">Smart Reply AI Prompt</label>
+                                        <div class="tooltip-container">
+                                            <div class="tooltip-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+                                            <div class="tooltip-text">The background instructions the AI follows when generating a Context-Aware Smart Reply.</div>
+                                        </div>
+                                    </div>
+                                    <a href="#" id="reset-context-prompt-btn" class="reset-link">Reset Default</a>
+                                </div>
+                                <textarea id="context-prompt" class="input-field prompt-area"></textarea>
+                            </div>
+
+                            <div class="setting-item full-width" style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 24px;">
+                                <div class="prompt-header">
+                                    <div class="setting-label-group">
+                                        <label>Custom AI Presets</label>
+                                        <div class="tooltip-container">
+                                            <div class="tooltip-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+                                            <div class="tooltip-text">Highlight messy text anywhere on your PC and press a custom hotkey to rewrite it using these specific instructions.</div>
+                                        </div>
+                                    </div>
+                                    <a href="#" id="add-preset-btn" class="reset-link">+ Add Preset</a>
+                                </div>
+                                <div id="presets-container" class="presets-list">
+                                    <!-- JS will populate presets here -->
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    
+                    <section class="card settings-section">
+                        <div class="card-header">
+                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                            <h3>General & Preferences</h3>
+                        </div>
+                        <div class="settings-grid">
+                            <div class="setting-item full-width">
+                                <div class="setting-header">
+                                    <div class="setting-label-group">
+                                        <label for="output-mode-select">Dictation Output Mode</label>
+                                        <div class="tooltip-container">
+                                            <div class="tooltip-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+                                            <div class="tooltip-text">If Auto-Type isn't working correctly in certain apps, change this to "Copy to Clipboard" and paste manually.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <select id="output-mode-select" class="input-field">
+                                    <option value="type">Auto-Type (Paste instantly)</option>
+                                    <option value="copy">Copy to Clipboard Only</option>
                                 </select>
                             </div>
 
                             <div class="setting-item">
                                 <label for="language-select">Dictation Language</label>
-                                <select id="language-select" class="hotkey-select">
+                                <select id="language-select" class="input-field">
                                     <option value="auto">Auto-Detect</option>
                                     <option value="en">English</option>
                                     <option value="es">Spanish</option>
@@ -104,60 +251,97 @@
                                     <option value="ar">Arabic</option>
                                 </select>
                             </div>
+                            
+                            <div class="setting-item">
+                                <div class="setting-header" style="height: 100%;">
+                                    <label for="startup-toggle">Auto-Start with Windows</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="startup-toggle">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                     </section>
 
                     <section class="card settings-section">
-                        <h3>AI & Privacy</h3>
+                        <div class="card-header">
+                            <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                            <h3>AI Engine & Privacy</h3>
+                        </div>
                         <div class="settings-grid">
                             <div class="setting-item full-width">
-                                <label for="local-llm-select">Offline Mode (Local AI)</label>
-                                <select id="local-llm-select" class="hotkey-select">
-                                    <option value="false">Use Groq Cloud (Faster, API key needed)</option>
-                                    <option value="true">Use Local Ollama (100% Private, 0 latency)</option>
+                                <label for="transcription-engine-select">Transcription Engine</label>
+                                <select id="transcription-engine-select" class="input-field">
+                                    <option value="local">Local Whisper (Offline, 100% Private)</option>
+                                    <option value="groq">Groq Cloud (Whisper Large v3, Ultra-Fast)</option>
                                 </select>
                             </div>
 
                             <div class="setting-item full-width">
-                                <label for="api-key">Groq API Key</label>
-                                <input type="password" id="api-key" placeholder="gsk_..." class="api-input">
+                                <div class="setting-header">
+                                    <div class="setting-label-group">
+                                        <label for="local-llm-toggle">Offline Mode (Local AI Rewrite)</label>
+                                        <div class="tooltip-container">
+                                            <div class="tooltip-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+                                            <div class="tooltip-text">If ON, uses Ollama running locally on your PC for 100% private, zero-latency AI edits instead of the Groq API.</div>
+                                        </div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="local-llm-toggle">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
                             </div>
 
                             <div class="setting-item full-width">
-                                <div class="prompt-header">
-                                    <label>Custom AI Presets</label>
-                                    <a href="#" id="add-preset-btn" class="reset-link">+ Add New Preset</a>
+                                <label for="api-key">Groq API Key</label>
+                                <input type="password" id="api-key" placeholder="gsk_..." class="input-field">
+                            </div>
+
+                            <div class="setting-item full-width">
+                                <div class="setting-label-group">
+                                    <label for="custom-vocabulary">Custom Vocabulary</label>
+                                    <div class="tooltip-container">
+                                        <div class="tooltip-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+                                        <div class="tooltip-text">Provide a comma-separated list of proper nouns, names, or industry jargon to help Whisper transcribe accurately.</div>
+                                    </div>
                                 </div>
-                                <div id="presets-container" class="presets-list">
-                                    <!-- JS will populate presets here -->
-                                </div>
+                                <textarea id="custom-vocabulary" class="input-field" rows="1" placeholder="e.g. VoiceFlow, FastAPI, React"></textarea>
                             </div>
                         </div>
                     </section>
 
-                    <button id="hotkey-save" class="btn-primary" style="margin-top: 10px;">Apply Settings</button>
+                    <button id="hotkey-save" class="btn-primary" style="margin-top: 10px;">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                        Apply Settings
+                    </button>
                 </div>
 
                 <!-- Tab: Transcription -->
                 <div id="transcription-tab" class="tab-content">
                     <section class="card drop-zone" id="drop-zone">
                         <div class="drop-content">
-                            <h3 style="margin-top:0; margin-bottom:20px; color:var(--text-main);">🎙️ Offline File Transcription</h3>
-                            <p class="subtitle" style="margin-bottom: 25px;">Drag & drop an audio/video file (.mp3, .wav, .m4a, .mp4) here, or click to upload.</p>
+                            <svg viewBox="0 0 24 24" width="48" height="48" stroke="var(--primary)" stroke-width="1.5" fill="none" style="margin-bottom: 20px;"><path d="M12 2v20"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                            <h3 style="margin-top:0; margin-bottom:12px; color:var(--text-main);">Offline File Transcription</h3>
+                            <p class="subtitle" style="margin-bottom: 24px;">Drag & drop an audio/video file here, or click to browse.</p>
                             <input type="file" id="file-upload" accept="audio/*,video/*,.m4a,.mp4,.mp3,.wav" style="display:none;">
                             <button class="btn-primary" onclick="document.getElementById('file-upload').click()">Browse Files</button>
                             
-                            <div id="upload-status" style="margin-top: 25px; font-weight: 600; color: var(--primary); display:none; align-items: center; justify-content: center; gap: 10px;">
+                            <div id="upload-status" style="margin-top: 24px; font-weight: 500; color: var(--primary); display:none; align-items: center; justify-content: center; gap: 12px;">
                                 <div class="loader"></div>
                                 <span id="upload-status-text">Processing audio... this may take a few minutes.</span>
                             </div>
 
-                            <div id="transcript-container" style="display:none; margin-top: 25px; text-align: left; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 12px; border: 1px solid var(--border);">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <div id="transcript-container" style="display:none; margin-top: 32px; text-align: left; padding: 24px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-surface);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                                     <h4 style="margin: 0; color: var(--text-main);">📄 Transcription Result</h4>
-                                    <button class="btn-secondary" style="padding: 6px 14px; font-size: 0.85rem; background:rgba(255,255,255,0.1);" onclick="copyTranscript()">📋 Copy</button>
+                                    <button class="btn-secondary" onclick="copyTranscript()">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                        Copy
+                                    </button>
                                 </div>
-                                <textarea id="transcript-result" class="prompt-area" style="min-height: 250px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); width: 100%; box-sizing: border-box;" placeholder="Transcript will appear here..."></textarea>
+                                <textarea id="transcript-result" class="input-field prompt-area" style="min-height: 250px; width: 100%; box-sizing: border-box;" placeholder="Transcript will appear here..."></textarea>
                             </div>
                         </div>
                     </section>
@@ -166,23 +350,42 @@
                 <!-- Tab: Instructions -->
                 <div id="instructions-tab" class="tab-content">
                     <section class="card">
-                        <h3 style="margin-bottom: 20px; font-size:18px; color:var(--primary);">📖 How to use VoiceFlow</h3>
+                        <div class="card-header">
+                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                            <h3>How to use VoiceFlow</h3>
+                        </div>
+                        
                         <div class="step">
                             <div class="step-num">1</div>
-                            <p>Hold your <strong>Dictation Hotkey</strong> (default Alt+Shift) anywhere to speak. Release the keys to let VoiceFlow automatically paste the text into your active app.</p>
+                            <p><strong>Normal Dictation (Alt + Shift):</strong> Hold your Dictation Hotkey anywhere to speak. Release the keys to let VoiceFlow automatically paste the text into your active app. Try saying things like "new paragraph" or "comma" for flawless voice formatting!</p>
                         </div>
                         <div class="step">
                             <div class="step-num">2</div>
-                            <p>Highlight any messy text and press your <strong>AI Feature Hotkey</strong> (default Ctrl+Shift) to instantly rewrite and fix it in place.</p>
+                            <p><strong>Smart Context-Aware Replies (Ctrl + Shift):</strong> Copy any text (like an email or message) to your clipboard, then hold this hotkey to dictate your response. The AI will intelligently format your dictation as a polite, professional reply to what you copied. You can fully customize how the AI replies in the AI & Privacy settings!</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-num">3</div>
+                            <p><strong>AI Highlight Rewrite (Custom Presets):</strong> Highlight any messy text on your screen and press a custom preset hotkey (e.g., Ctrl + Space) to instantly rewrite and fix it in place. Add as many custom presets as you'd like in the settings!</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-num">4</div>
+                            <p><strong>Dictation Output Mode:</strong> If Auto-Type isn't pasting correctly in certain apps, go to Settings and change your output mode to <strong>"Copy to Clipboard Only"</strong>. Then simply press Ctrl+V to paste your dictation perfectly every time.</p>
+                        </div>
+                        <div class="step" style="margin-bottom: 0;">
+                            <div class="step-num">5</div>
+                            <p><strong>Smart Filler Word Removal:</strong> Enable this in settings to have the AI magically scrub out all the "ums", "uhs", and stutters from your dictation before typing it out.</p>
                         </div>
                     </section>
 
-                    <section class="card privacy-card" style="margin-top: 24px;">
-                        <h3 style="margin-top:0; color: var(--primary); font-size:18px;">🔒 Your Privacy is Guaranteed</h3>
-                        <p style="font-size: 0.95rem; line-height: 1.6; color: var(--text-main); margin-top:15px;">
+                    <section class="card privacy-card" style="margin-top: 8px;">
+                        <div class="card-header" style="margin-bottom: 16px;">
+                            <svg viewBox="0 0 24 24" stroke="var(--primary)"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                            <h3 style="color: var(--primary);">Your Privacy is Guaranteed</h3>
+                        </div>
+                        <p style="font-size: 14px; line-height: 1.6; color: var(--text-main); margin-bottom: 12px;">
                             <strong>All of your audio is processed securely on your own system.</strong> The core dictation and transcription engine runs entirely locally, meaning your voice recordings and audio files <strong>never leave your device</strong>. 
                         </p>
-                        <p style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 0; margin-top: 15px; color: var(--text-muted);">
+                        <p style="font-size: 14px; line-height: 1.6; margin-bottom: 0; color: var(--text-muted);">
                             When you use the AI feature with Groq, only the specific text you highlight is sent to the Groq API for correction. If you require absolute zero-trust privacy, you can switch to <strong>Offline Mode (Local AI)</strong> and use <strong>Ollama</strong> (a completely open-source local model). With Ollama enabled, 100% of your data stays on your machine and nothing is ever sent to the cloud!
                         </p>
                     </section>
@@ -196,11 +399,9 @@
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script>
         function switchTab(tabId, element) {
-            // Remove active from all tabs
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             
-            // Add active to selected
             document.getElementById(tabId).classList.add('active');
             element.classList.add('active');
         }

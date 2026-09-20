@@ -40,16 +40,32 @@ def set_config():
         if data:
             if 'key1' in data and 'key2' in data:
                 agent.set_hotkey(data['key1'], data['key2'])
+            if 'context_key1' in data and 'context_key2' in data:
+                agent.set_context_hotkey(data['context_key1'], data['context_key2'])
             if 'ai_presets' in data:
                 agent.ai_presets = data['ai_presets']
             if 'api_key' in data:
                 agent.api_key = data['api_key']
+            if 'context_prompt' in data:
+                agent.context_prompt = data['context_prompt']
+            if 'main_dictation_ai' in data:
+                agent.main_dictation_ai = data['main_dictation_ai']
             if 'run_at_startup' in data:
                 agent.set_startup(data['run_at_startup'])
             if 'dictation_language' in data:
                 agent.dictation_language = data['dictation_language']
+            if 'context_aware_dictation' in data:
+                agent.context_aware_dictation = data['context_aware_dictation']
+            if 'remove_filler_words' in data:
+                agent.remove_filler_words = data['remove_filler_words']
+            if 'output_mode' in data:
+                agent.output_mode = data['output_mode']
             if 'use_local_llm' in data:
                 agent.use_local_llm = data['use_local_llm']
+            if 'transcription_engine' in data:
+                agent.transcription_engine = data['transcription_engine']
+            if 'custom_vocabulary' in data:
+                agent.custom_vocabulary = data['custom_vocabulary']
                 
             agent.save_config()
             return jsonify({'ok': True, 'hotkey': list(agent.hotkey)})
@@ -144,7 +160,8 @@ if __name__ == '__main__':
     main_window.events.closed += on_closed
     
     # Start the webview application
-    webview.start()
+    icon_path = os.path.join(os.path.dirname(__file__), 'static', 'img', 'logo_icon.ico')
+    webview.start(icon=icon_path)
     
     # Fallback stop
     agent.stop()
