@@ -117,8 +117,8 @@ jobs:
       - name: Publish Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "latest"
-          name: "VoiceFlow (Latest Build)"
+          tag_name: "v1.0.${{ github.run_number }}"
+          name: "VoiceFlow (Build ${{ github.run_number }})"
           body: "This release is automatically compiled and uploaded by GitHub Actions! No manual upload required."
           files: release_assets/*
           make_latest: true
