@@ -804,7 +804,7 @@ class DictationAgent:
                         "content": text
                     }
                 ],
-                model="llama3-8b-8192",
+                model="openai/gpt-oss-20b",
                 temperature=0.0,
             )
             polished = response.choices[0].message.content.strip()
