@@ -159,10 +159,49 @@ if __name__ == '__main__':
         
     main_window.events.closed += on_closed
     
-    if sys.platform.startswith('linux') and os.environ.get('XDG_SESSION_TYPE', '').lower() == 'wayland':
-        print("\n[WARNING] Wayland display server detected!")
-        print("Global hotkeys (like Alt+Shift) may not work on Wayland due to security restrictions.")
-        print("If dictation hotkeys fail, please switch to an 'Xorg / X11' session at your login screen.\n")
+    if sys.platform.startswith('linux'):
+        # Check for Wayland
+        if os.environ.get('XDG_SESSION_TYPE', '').lower() == 'wayland':
+            print("\n[WARNING] Wayland display server detected!")
+            print("Global hotkeys (like Alt+Shift) may not work on Wayland due to security restrictions.")
+            print("If dictation hotkeys fail, please switch to an 'Xorg / X11' session at your login screen.\n")
+            
+        # Automatically create Linux App shortcut if it doesn't exist
+        try:
+            import shutil
+            apps_dir = os.path.expanduser('~/.local/share/applications')
+            icons_dir = os.path.expanduser('~/.local/share/icons')
+            os.makedirs(apps_dir, exist_ok=True)
+            os.makedirs(icons_dir, exist_ok=True)
+            
+            desktop_file = os.path.join(apps_dir, 'VoiceFlow.desktop')
+            icon_dest = os.path.join(icons_dir, 'voiceflow_icon.ico')
+            
+            # Copy icon
+            icon_src = os.path.join(os.path.dirname(__file__), 'static', 'img', 'logo_icon.ico')
+            if os.path.exists(icon_src) and not os.path.exists(icon_dest):
+                shutil.copy2(icon_src, icon_dest)
+                
+            # Create desktop file
+            if getattr(sys, 'frozen', False):
+                exe_path = os.path.abspath(sys.executable)
+            else:
+                exe_path = f"{sys.executable} {os.path.abspath(sys.argv[0])}"
+                
+            if not os.path.exists(desktop_file):
+                content = f"""[Desktop Entry]
+Type=Application
+Name=VoiceFlow
+Comment=AI Dictation Everywhere
+Exec="{exe_path}"
+Icon={icon_dest}
+Terminal=false
+Categories=Utility;
+"""
+                with open(desktop_file, 'w') as f:
+                    f.write(content)
+        except Exception as e:
+            print(f"Failed to create Linux app shortcut: {e}")
 
     # Start the webview application
     icon_path = os.path.join(os.path.dirname(__file__), 'static', 'img', 'logo_icon.ico')
