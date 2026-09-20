@@ -175,21 +175,20 @@ if __name__ == '__main__':
             os.makedirs(icons_dir, exist_ok=True)
             
             desktop_file = os.path.join(apps_dir, 'VoiceFlow.desktop')
-            icon_dest = os.path.join(icons_dir, 'voiceflow_icon.ico')
+            icon_dest = os.path.join(icons_dir, 'voiceflow_icon.png')
             
-            # Copy icon
-            icon_src = os.path.join(os.path.dirname(__file__), 'static', 'img', 'logo_icon.ico')
-            if os.path.exists(icon_src) and not os.path.exists(icon_dest):
+            # Force copy new png icon to clear old caches
+            icon_src = os.path.join(os.path.dirname(__file__), 'static', 'img', 'logo_final.png')
+            if os.path.exists(icon_src):
                 shutil.copy2(icon_src, icon_dest)
                 
-            # Create desktop file
+            # Create/Update desktop file
             if getattr(sys, 'frozen', False):
                 exe_path = os.path.abspath(sys.executable)
             else:
                 exe_path = f"{sys.executable} {os.path.abspath(sys.argv[0])}"
                 
-            if not os.path.exists(desktop_file):
-                content = f"""[Desktop Entry]
+            content = f"""[Desktop Entry]
 Type=Application
 Name=VoiceFlow
 Comment=AI Dictation Everywhere
@@ -198,8 +197,8 @@ Icon={icon_dest}
 Terminal=false
 Categories=Utility;
 """
-                with open(desktop_file, 'w') as f:
-                    f.write(content)
+            with open(desktop_file, 'w') as f:
+                f.write(content)
         except Exception as e:
             print(f"Failed to create Linux app shortcut: {e}")
 
