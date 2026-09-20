@@ -173,12 +173,21 @@ nav a:hover {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 16px;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.button-group {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 24px;
 }
 
 .btn-download {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 16px;
     padding: 16px 32px;
     border-radius: 12px;
@@ -187,6 +196,15 @@ nav a:hover {
     background: var(--text-main);
     color: var(--bg-base);
     font-weight: 600;
+    flex: 1 1 280px;
+    max-width: 350px;
+    text-align: left;
+}
+
+.btn-download div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
 }
 
 .btn-download:hover {

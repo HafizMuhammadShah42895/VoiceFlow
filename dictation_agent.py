@@ -520,7 +520,7 @@ class DictationAgent:
                 log(f"Captured {len(raw)} bytes ({secs:.1f}s)")
 
                 text = self._transcribe(raw)
-                if text:
+                if text and text.strip():
                     use_ai = False
                     if self._is_context_recording:
                         use_ai = True
@@ -533,11 +533,14 @@ class DictationAgent:
                         self.overlay.set_state('ai_edit')
                         text = self._apply_llm_post_processing(text)
                         
-                    text = self._apply_voice_commands(text)
-                    log(f"Typing: \"{text[:60]}...\"")
-                    self._type_text(text)
+                    if text and text.strip():
+                        text = self._apply_voice_commands(text)
+                        log(f"Typing: \"{text[:60]}...\"")
+                        self._type_text(text)
+                    else:
+                        log("No text to type (empty after AI)")
                 else:
-                    log("No text to type")
+                    log("No text to type (nothing detected)")
             else:
                 log("No audio captured")
 
