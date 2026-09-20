@@ -22,6 +22,37 @@ _MODIFIER_MAP = {
 DEFAULT_PROMPT = "You are a strict grammar-correction API. You do not answer questions, converse, or add any new information. Your ONLY job is to fix grammatical and structural errors in the user's text and return the corrected text. Do NOT wrap the text in quotes, do NOT explain the changes, and do NOT include any preamble. If the text is already perfect, return it exactly as is."
 DEFAULT_CONTEXT_PROMPT = "The dictated text is intended as a response or addition to the text in the clipboard. Rewrite the dictated text to be a polite, professional, and well-formulated response. DO NOT include the clipboard text in your output."
 
+def safe_clipboard_get():
+    try:
+        import pyperclip
+        return pyperclip.paste()
+    except Exception:
+        try:
+            import tkinter as tk
+            root = tk.Tk()
+            root.withdraw()
+            result = root.clipboard_get()
+            root.destroy()
+            return result
+        except Exception:
+            return ""
+
+def safe_clipboard_set(text):
+    try:
+        import pyperclip
+        pyperclip.copy(text)
+    except Exception:
+        try:
+            import tkinter as tk
+            root = tk.Tk()
+            root.withdraw()
+            root.clipboard_clear()
+            root.clipboard_append(text)
+            root.update()
+            root.destroy()
+        except Exception:
+            pass
+
 def log(msg):
     try:
         print(f"[dictation] {msg}", flush=True)
@@ -533,8 +564,8 @@ class DictationAgent:
             
         if self._is_context_recording:
             try:
-                import pyperclip
-                clipboard_text = pyperclip.paste()
+                # import pyperclip
+                clipboard_text = safe_clipboard_get()
                 if clipboard_text and len(clipboard_text.strip()) > 0:
                     user_prompt += f"Instruction: {getattr(self, 'context_prompt', DEFAULT_CONTEXT_PROMPT)}\n[CLIPBOARD START]\n{clipboard_text}\n[CLIPBOARD END]\n"
             except Exception as e:
@@ -785,8 +816,8 @@ class DictationAgent:
 
     def _type_text(self, text):
         try:
-            import pyperclip
-            pyperclip.copy(text + ' ')
+            # import pyperclip
+            safe_clipboard_set(text + ' ')
             
             mode = getattr(self, 'output_mode', 'type')
             if mode == 'type':
@@ -834,7 +865,7 @@ class DictationAgent:
         log("AI Edit triggered on selected text...")
         
         try:
-            import pyperclip
+            # import pyperclip
             import time
             import pyautogui
             
@@ -856,12 +887,12 @@ class DictationAgent:
             
             # Save current clipboard
             try:
-                old_clipboard = pyperclip.paste()
+                old_clipboard = safe_clipboard_get()
             except:
                 old_clipboard = ""
             
             # Clear clipboard to detect if copy was successful
-            pyperclip.copy('')
+            safe_clipboard_set('')
             
             # Copy selected text
             log("Simulating Ctrl+C...")
@@ -869,13 +900,13 @@ class DictationAgent:
             time.sleep(0.3)
             
             try:
-                selected_text = pyperclip.paste().strip()
+                selected_text = safe_clipboard_get().strip()
             except:
                 selected_text = ""
             
             if not selected_text:
                 log("No text selected or copy failed!")
-                pyperclip.copy(old_clipboard)
+                safe_clipboard_set(old_clipboard)
                 return
                 
             log(f"Selected: \"{selected_text[:30]}...\"")
@@ -884,11 +915,11 @@ class DictationAgent:
             
             if new_text is None:
                 log("AI Edit aborted due to error.")
-                pyperclip.copy(old_clipboard)
+                safe_clipboard_set(old_clipboard)
                 return
             
             # Paste the new text over the selection
-            pyperclip.copy(new_text)
+            safe_clipboard_set(new_text)
             
             kb.release(Key.ctrl)
             kb.release(Key.shift)
@@ -899,7 +930,7 @@ class DictationAgent:
             
             # Small delay to ensure paste happens before restoring old clipboard
             time.sleep(0.3)
-            pyperclip.copy(old_clipboard)
+            safe_clipboard_set(old_clipboard)
             
             try:
                 import winsound
@@ -934,30 +965,59 @@ class DictationAgent:
 
     def set_startup(self, enabled):
         self.run_at_startup = enabled
-        try:
-            import winreg
-            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
-            if enabled:
-                if getattr(sys, 'frozen', False):
-                    path = f'"{sys.executable}"'
+        import os, sys
+        
+        if getattr(sys, 'frozen', False):
+            path = f'"{sys.executable}"'
+            exe_path = sys.executable
+        else:
+            python_exe = sys.executable
+            if sys.platform == 'win32' and python_exe.lower().endswith("python.exe"):
+                python_exe = python_exe[:-10] + "pythonw.exe"
+            path = f'"{python_exe}" "{os.path.abspath(sys.argv[0])}"'
+            exe_path = f'{python_exe} {os.path.abspath(sys.argv[0])}'
+
+        if sys.platform == 'win32':
+            try:
+                import winreg
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_SET_VALUE)
+                if enabled:
+                    winreg.SetValueEx(key, "VoiceFlow", 0, winreg.REG_SZ, path)
+                    log("Added to Windows Startup.")
                 else:
-                    # Get absolute path to app.py assuming the agent is imported there
-                    import os
-                    python_exe = sys.executable
-                    if python_exe.lower().endswith("python.exe"):
-                        python_exe = python_exe[:-10] + "pythonw.exe"
-                    path = f'"{python_exe}" "{os.path.abspath(sys.argv[0])}"'
-                winreg.SetValueEx(key, "VoiceFlow", 0, winreg.REG_SZ, path)
-                log("Added to Windows Startup.")
-            else:
-                try:
-                    winreg.DeleteValue(key, "VoiceFlow")
-                    log("Removed from Windows Startup.")
-                except FileNotFoundError:
-                    pass
-            winreg.CloseKey(key)
-        except Exception as e:
-            log(f"Failed to update startup registry: {e}")
+                    try:
+                        winreg.DeleteValue(key, "VoiceFlow")
+                        log("Removed from Windows Startup.")
+                    except FileNotFoundError:
+                        pass
+                winreg.CloseKey(key)
+            except Exception as e:
+                log(f"Failed to update Windows startup registry: {e}")
+        elif sys.platform.startswith('linux'):
+            try:
+                autostart_dir = os.path.expanduser('~/.config/autostart')
+                os.makedirs(autostart_dir, exist_ok=True)
+                desktop_file = os.path.join(autostart_dir, 'VoiceFlow.desktop')
+                
+                if enabled:
+                    content = f"""[Desktop Entry]
+Type=Application
+Exec={exe_path}
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Name=VoiceFlow
+Comment=AI Dictation Everywhere
+"""
+                    with open(desktop_file, 'w') as f:
+                        f.write(content)
+                    log("Added to Linux Autostart.")
+                else:
+                    if os.path.exists(desktop_file):
+                        os.remove(desktop_file)
+                    log("Removed from Linux Autostart.")
+            except Exception as e:
+                log(f"Failed to update Linux autostart: {e}")
 
     def get_config(self):
         keys = list(self.hotkey)

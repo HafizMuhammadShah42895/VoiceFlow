@@ -159,6 +159,11 @@ if __name__ == '__main__':
         
     main_window.events.closed += on_closed
     
+    if sys.platform.startswith('linux') and os.environ.get('XDG_SESSION_TYPE', '').lower() == 'wayland':
+        print("\n[WARNING] Wayland display server detected!")
+        print("Global hotkeys (like Alt+Shift) may not work on Wayland due to security restrictions.")
+        print("If dictation hotkeys fail, please switch to an 'Xorg / X11' session at your login screen.\n")
+
     # Start the webview application
     icon_path = os.path.join(os.path.dirname(__file__), 'static', 'img', 'logo_icon.ico')
     webview.start(icon=icon_path)
