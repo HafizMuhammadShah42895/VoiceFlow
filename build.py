@@ -7,7 +7,7 @@ print("Building VoiceFlow...")
 # Use the correct path separator for the current OS (; for Windows, : for Mac/Linux)
 sep = os.pathsep
 
-PyInstaller.__main__.run([
+cmd = [
     'app.py',
     '--name=VoiceFlow',
     '--windowed', # Hide the terminal console
@@ -30,6 +30,14 @@ PyInstaller.__main__.run([
     '--collect-all=numpy',
     '--noconfirm',
     '--clean'
-])
+]
+
+if sys.platform.startswith('linux'):
+    cmd.extend([
+        '--hidden-import=gi',
+        '--collect-all=gi'
+    ])
+
+PyInstaller.__main__.run(cmd)
 
 print("Build complete! You can find the executable in the 'dist' folder.")
