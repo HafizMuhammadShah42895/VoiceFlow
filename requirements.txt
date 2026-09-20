@@ -9,3 +9,6 @@ groq
 python-dotenv
 pywebview
 pyinstaller
+PyQt5; sys_platform == "linux"
+PyQtWebEngine; sys_platform == "linux"
+qtpy; sys_platform == "linux"

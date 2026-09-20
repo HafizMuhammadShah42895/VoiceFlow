@@ -34,8 +34,11 @@ cmd = [
 
 if sys.platform.startswith('linux'):
     cmd.extend([
-        '--hidden-import=gi',
-        '--collect-all=gi'
+        '--hidden-import=PyQt5',
+        '--hidden-import=PyQtWebEngine',
+        '--hidden-import=qtpy',
+        '--collect-all=PyQt5',
+        '--collect-all=qtpy'
     ])
 
 PyInstaller.__main__.run(cmd)
