@@ -1,6 +1,6 @@
 import unittest
 
-from voiceflow_core.text_rules import apply_replacements, expand_snippet, parse_rules
+from voiceflow_core.text_rules import apply_replacements, expand_snippet, parse_rules, suggest_replacements
 
 
 class TextRulesTests(unittest.TestCase):
@@ -16,6 +16,24 @@ class TextRulesTests(unittest.TestCase):
         rules = "my email => hello@example.com\nsign off => Best regards,\nWali"
         self.assertEqual(expand_snippet("My email.", rules), "hello@example.com")
         self.assertEqual(expand_snippet("Use my email here", rules), "Use my email here")
+
+    def test_suggests_replacements_from_a_correction(self):
+        suggestions = suggest_replacements(
+            "Run docker compose up with the api key.",
+            "Run docker-compose up with the API key.",
+        )
+        self.assertEqual(suggestions, [
+            {"spoken": "docker compose", "replacement": "docker-compose"},
+            {"spoken": "api", "replacement": "API"},
+        ])
+
+    def test_ignores_trivial_known_and_rewritten_changes(self):
+        self.assertEqual(suggest_replacements("hello world", "Hello world."), [])
+        self.assertEqual(suggest_replacements("use open ai", "use OpenAI", "open ai => OpenAI"), [])
+        self.assertEqual(
+            suggest_replacements("the quick brown fox jumps over it", "a completely different sentence entirely"),
+            [],
+        )
 
 
 if __name__ == "__main__":

@@ -182,6 +182,30 @@ def retry_history_item(job_id):
         return jsonify({'ok': item.get('status') == 'completed', 'item': item})
     return jsonify({'ok': False, 'error': 'No recoverable audio is available for this transcript'}), 409
 
+@app.route('/api/history/<job_id>/correct', methods=['POST'])
+def correct_history_item(job_id):
+    data = request.get_json(silent=True) or {}
+    try:
+        result = agent.correct_history_item(job_id, data.get('text'))
+    except ValueError as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
+    if not result:
+        return jsonify({'ok': False, 'error': 'History item not found'}), 404
+    return jsonify({'ok': True, **result})
+
+@app.route('/api/replacements', methods=['POST'])
+def add_replacement():
+    data = request.get_json(silent=True) or {}
+    try:
+        added = agent.add_replacement(data.get('spoken'), data.get('replacement'))
+    except ValueError as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
+    return jsonify({'ok': True, 'added': added, 'text_replacements': agent.text_replacements})
+
+@app.route('/api/apps')
+def open_apps():
+    return jsonify({'ok': True, 'apps': agent.list_open_apps()})
+
 @app.route('/api/history/latest/copy', methods=['POST'])
 def copy_latest_history_item():
     if agent.copy_history_item():

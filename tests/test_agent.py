@@ -126,6 +126,69 @@ class DictationAgentTests(unittest.TestCase):
         self.agent._purge_history(force=True)
         self.assertIsNone(self.agent.history.get(job_id))
 
+    def test_profile_overrides_main_settings_for_its_app(self):
+        from voiceflow_core.app_context import AppContext
+
+        self.agent.update_config({
+            "main_dictation_ai": False,
+            "writing_style": "natural",
+            "writing_profiles": [
+                {"name": "Work chat", "apps": ["slack.exe"], "writing_style": "concise",
+                 "ai_polish": "on", "instructions": "Keep it short."},
+                {"name": "Just type", "apps": ["chrome.exe"], "ai_polish": "off"},
+            ],
+        })
+        slack = AppContext(process_name="slack.exe", category="chat", instruction="built-in chat rule")
+        profile = dictation_agent.profile_for_app(self.agent.writing_profiles, slack.process_name)
+        self.assertEqual(
+            self.agent._writing_settings(profile, slack),
+            {"ai_polish": True, "writing_style": "concise", "instruction": "Keep it short."},
+        )
+
+        self.agent.main_dictation_ai = True
+        chrome = AppContext(process_name="chrome.exe", category="browser", instruction="built-in browser rule")
+        profile = dictation_agent.profile_for_app(self.agent.writing_profiles, chrome.process_name)
+        self.assertFalse(self.agent._writing_settings(profile, chrome)["ai_polish"])
+
+        # No profile: main settings and the built-in app rule apply.
+        notepad = AppContext(process_name="notepad.exe", instruction="")
+        self.assertEqual(
+            self.agent._writing_settings(None, notepad),
+            {"ai_polish": True, "writing_style": "natural", "instruction": ""},
+        )
+        saved = json.loads(Path(os.environ["VOICEFLOW_CONFIG_FILE"]).read_text(encoding="utf-8"))
+        self.assertEqual([p["name"] for p in saved["writing_profiles"]], ["Work chat", "Just type"])
+
+    def test_recording_start_remembers_the_apps_profile(self):
+        from voiceflow_core.app_context import AppContext
+
+        self.agent.writing_profiles = [{"name": "Work chat", "apps": ["slack.exe"], "writing_style": "default",
+                                        "ai_polish": "default", "instructions": "", "id": "p1"}]
+        with mock.patch.object(dictation_agent, "get_foreground_app_context",
+                               return_value=AppContext(process_name="slack.exe")), \
+                mock.patch.object(self.agent.audio, "start_recording"), \
+                mock.patch.object(dictation_agent, "_play_sound"):
+            self.agent._start_recording(context=False)
+        self.assertEqual(self.agent._active_profile["name"], "Work chat")
+        job = self.agent.history.get(self.agent._active_history_id)
+        self.assertEqual(job["metadata"]["profile"], "Work chat")
+
+    def test_correction_suggests_and_adds_replacements(self):
+        job_id = self.agent.history.create(status="transcribing")
+        self.agent.history.complete(job_id, "Deploy with docker compose")
+        result = self.agent.correct_history_item(job_id, "Deploy with docker-compose")
+        self.assertEqual(result["item"]["final_text"], "Deploy with docker-compose")
+        self.assertEqual(result["suggestions"], [{"spoken": "docker compose", "replacement": "docker-compose"}])
+
+        self.assertTrue(self.agent.add_replacement("docker compose", "docker-compose"))
+        self.assertFalse(self.agent.add_replacement("Docker Compose", "something else"))
+        self.assertEqual(self.agent.text_replacements, "docker compose => docker-compose")
+        with self.assertRaises(ValueError):
+            self.agent.add_replacement("a => b", "c")
+        with self.assertRaises(ValueError):
+            self.agent.correct_history_item(job_id, "   ")
+        self.assertIsNone(self.agent.correct_history_item("missing", "text"))
+
 
 if __name__ == "__main__":
     unittest.main()

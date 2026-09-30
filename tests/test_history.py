@@ -60,6 +60,15 @@ class DictationHistoryTests(unittest.TestCase):
         self.assertEqual(self.history.list(), [])
         self.assertFalse(Path(audio_path).exists())
 
+    def test_update_final_text_keeps_status_and_marks_correction(self):
+        job_id = self.history.create(mode="dictation", status=DictationStatus.TRANSCRIBING)
+        self.history.complete(job_id, "Run docker compose")
+        updated = self.history.update_final_text(job_id, "Run docker-compose")
+        self.assertEqual(updated["final_text"], "Run docker-compose")
+        self.assertEqual(updated["status"], "completed")
+        self.assertIn("corrected_at", updated["metadata"])
+        self.assertIsNone(self.history.update_final_text("missing", "x"))
+
 
 if __name__ == "__main__":
     unittest.main()

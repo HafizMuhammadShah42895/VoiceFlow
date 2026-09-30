@@ -29,14 +29,19 @@ from voiceflow_core import (
     focus_window,
     force_release_modifiers,
     get_foreground_app_context,
+    list_open_apps,
     log,
     normalize_key,
+    parse_profiles,
+    parse_rules,
     paste_text,
     preset_for_keys,
+    profile_for_app,
     repair_preset_conflicts,
     safe_clipboard_get,
     safe_clipboard_set,
     send_shortcut,
+    suggest_replacements,
     type_or_paste,
 )
 
@@ -187,6 +192,7 @@ class DictationAgent:
         self.silence_auto_stop = True
         self.silence_timeout_seconds = 3.0
         self.silence_threshold = 0.01
+        self.writing_profiles: list[dict] = []
         self._recording_lock = threading.RLock()
         self._config_lock = threading.RLock()
         self._analytics_lock = threading.Lock()
@@ -194,6 +200,7 @@ class DictationAgent:
         self._cancel_requested = False
         self._silence_monitor_thread = None
         self._active_app_context = None
+        self._active_profile: Optional[dict] = None
         self._last_history_purge = 0.0
 
         self.ai_presets = [
@@ -239,6 +246,8 @@ class DictationAgent:
             attempt("context_hotkey", lambda: _hotkey_pair(data["context_key1"], data["context_key2"], "Context shortcut"))
         if "ai_presets" in data:
             attempt("ai_presets", lambda: _parse_presets(data["ai_presets"]))
+        if "writing_profiles" in data:
+            attempt("writing_profiles", lambda: parse_profiles(data["writing_profiles"]))
         for name in BOOL_SETTINGS + ("run_at_startup", "clear_api_key"):
             if name in data:
                 attempt(name, lambda name=name: _as_bool(data[name], name))
@@ -359,6 +368,7 @@ class DictationAgent:
                 "silence_auto_stop": self.silence_auto_stop,
                 "silence_timeout_seconds": self.silence_timeout_seconds,
                 "silence_threshold": self.silence_threshold,
+                "writing_profiles": self.writing_profiles,
             }
             if self.api_key and not self.credential_store.available:
                 # Without an OS credential store the key would otherwise be lost on restart.
@@ -492,6 +502,7 @@ class DictationAgent:
             # selection is safe. It only shapes the AI prompt when app-aware
             # formatting is enabled.
             self._active_app_context = get_foreground_app_context()
+            self._active_profile = profile_for_app(self.writing_profiles, self._active_app_context.process_name)
             metadata = {}
             if self.app_aware_formatting:
                 metadata = {
@@ -499,6 +510,8 @@ class DictationAgent:
                     "window_title": self._active_app_context.window_title,
                     "app_category": self._active_app_context.category,
                 }
+            if self._active_profile:
+                metadata["profile"] = self._active_profile["name"]
             try:
                 self._active_history_id = self.history.create(
                     mode="context_reply" if context else "dictation",
@@ -532,8 +545,9 @@ class DictationAgent:
             self._active_history_id = None
             is_context_recording = self._is_context_recording
             app_context = self._active_app_context
+            profile = self._active_profile
 
-        self._process_recording(raw_audio, history_id, is_context_recording, app_context)
+        self._process_recording(raw_audio, history_id, is_context_recording, app_context, profile)
 
     def _cancel_recording(self) -> None:
         with self._recording_lock:
@@ -546,6 +560,7 @@ class DictationAgent:
             history_id = self._active_history_id
             self._active_history_id = None
             self._active_app_context = None
+            self._active_profile = None
             self.status = "idle"
 
         if history_id:
@@ -600,7 +615,10 @@ class DictationAgent:
         history_id: Optional[str],
         is_context_recording: bool,
         app_context: Any = None,
+        profile: Optional[dict] = None,
     ) -> None:
+        writing = self._writing_settings(profile, app_context)
+
         def process():
             recovery_audio_path = None
             selection = {"text": ""}
@@ -657,7 +675,6 @@ class DictationAgent:
                     return
 
                 text = raw_text.strip()
-                app_instruction = app_context.instruction if app_context and self.app_aware_formatting else ""
 
                 if voice_edit_selection:
                     log("Selected text detected. Applying voice edit.")
@@ -695,7 +712,7 @@ class DictationAgent:
                         )
                     return
 
-                use_ai = is_context_recording or self.main_dictation_ai
+                use_ai = is_context_recording or writing["ai_polish"]
 
                 if use_ai:
                     if history_id:
@@ -707,11 +724,11 @@ class DictationAgent:
                         text=text,
                         api_key=self.api_key,
                         is_context_recording=is_context_recording,
-                        main_dictation_ai=self.main_dictation_ai,
-                        writing_style=self.writing_style,
+                        main_dictation_ai=writing["ai_polish"],
+                        writing_style=writing["writing_style"],
                         context_prompt=self.context_prompt,
                         clipboard_context=clipboard_context,
-                        app_instruction=app_instruction,
+                        app_instruction=writing["instruction"],
                         use_local_llm=self.use_local_llm,
                         on_error=self.overlay.show_error,
                     )
@@ -756,10 +773,36 @@ class DictationAgent:
                 self._cancel_requested = False
                 self._is_context_recording = False
                 self._active_app_context = None
+                self._active_profile = None
                 self.overlay.set_state("idle")
                 self._purge_history()
 
         threading.Thread(target=process, daemon=True).start()
+
+    def _writing_settings(self, profile: Optional[dict], app_context: Any) -> dict[str, Any]:
+        """Decide AI Polish, style, and app rules for one dictation.
+
+        A writing profile assigned to the app wins over the main settings and over
+        the built-in app rules. Profiles apply even when built-in app-aware
+        formatting is turned off, because the user chose them explicitly.
+        """
+        ai_polish = self.main_dictation_ai
+        writing_style = self.writing_style
+        instruction = app_context.instruction if app_context and self.app_aware_formatting else ""
+
+        if profile:
+            if profile.get("ai_polish") == "on":
+                ai_polish = True
+            elif profile.get("ai_polish") == "off":
+                ai_polish = False
+            if profile.get("writing_style", "default") != "default":
+                writing_style = profile["writing_style"]
+            if profile.get("instructions"):
+                instruction = profile["instructions"]
+        return {"ai_polish": ai_polish, "writing_style": writing_style, "instruction": instruction}
+
+    def list_open_apps(self) -> list[dict[str, str]]:
+        return list_open_apps()
 
     # ------------------------------------------------------------------ AI edits
 
@@ -964,6 +1007,35 @@ class DictationAgent:
             return ""
         return (item.get("final_text") or item.get("raw_text") or "").strip()
 
+    def correct_history_item(self, job_id: str, corrected_text: Any) -> Optional[dict[str, Any]]:
+        """Save the user's corrected transcript and suggest word replacements from it."""
+        if not isinstance(corrected_text, str) or not corrected_text.strip():
+            raise ValueError("The corrected text cannot be empty")
+        if len(corrected_text) > 100000:
+            raise ValueError("The corrected text is too long")
+        item = self.history.get(job_id)
+        if not item:
+            return None
+        original = item.get("final_text") or item.get("raw_text") or ""
+        corrected_text = corrected_text.strip()
+        updated = self.history.update_final_text(job_id, corrected_text)
+        suggestions = suggest_replacements(original, corrected_text, self.text_replacements)
+        return {"item": updated, "suggestions": suggestions}
+
+    def add_replacement(self, spoken: Any, replacement: Any) -> bool:
+        """Append a word replacement rule. Returns False if one already exists for the phrase."""
+        spoken = _as_text(spoken, "Spoken phrase", 200).strip()
+        replacement = _as_text(replacement, "Replacement", 500).strip()
+        if not spoken or not replacement or "=>" in spoken or "\n" in spoken or "\n" in replacement:
+            raise ValueError("Enter a spoken phrase and its replacement on one line")
+        with self._config_lock:
+            if any(existing.casefold() == spoken.casefold() for existing, _ in parse_rules(self.text_replacements)):
+                return False
+            rules = self.text_replacements.rstrip("\n")
+            self.text_replacements = f"{rules}\n{spoken} => {replacement}" if rules else f"{spoken} => {replacement}"
+            self.save_config()
+        return True
+
     def copy_history_item(self, job_id: Optional[str] = None) -> bool:
         text = self._history_text(job_id)
         return bool(text) and safe_clipboard_set(text)
@@ -1101,4 +1173,5 @@ Comment=AI Dictation Everywhere
             "silence_auto_stop": self.silence_auto_stop,
             "silence_timeout_seconds": self.silence_timeout_seconds,
             "silence_threshold": self.silence_threshold,
+            "writing_profiles": self.writing_profiles,
         }

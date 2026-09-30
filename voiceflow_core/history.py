@@ -223,6 +223,20 @@ class DictationHistory:
             **fields,
         )
 
+    def update_final_text(self, job_id: str, final_text: str) -> Optional[dict[str, Any]]:
+        """Replace a transcript's text with the user's correction, keeping its status."""
+        current = self.get(job_id)
+        if not current:
+            return None
+        metadata = dict(current.get("metadata") or {})
+        metadata["corrected_at"] = _utc_now()
+        with self._connection() as connection:
+            connection.execute(
+                "UPDATE dictations SET final_text = ?, metadata_json = ?, updated_at = ? WHERE id = ?",
+                (final_text, json.dumps(metadata, ensure_ascii=False), _utc_now(), job_id),
+            )
+        return self.get(job_id)
+
     def get(self, job_id: str) -> Optional[dict[str, Any]]:
         with self._connection() as connection:
             row = connection.execute("SELECT * FROM dictations WHERE id = ?", (job_id,)).fetchone()

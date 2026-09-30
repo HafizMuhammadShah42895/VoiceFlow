@@ -734,3 +734,23 @@ select.input-field {
     .content-scrollable { padding: 24px; }
     .top-header { padding: 24px; flex-direction: column; align-items: flex-start; gap: 16px; }
 }
+
+/* Writing profiles */
+.profiles-empty { margin: 12px 0; }
+#add-profile-btn { margin-top: 12px; }
+.profile-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.profile-row .setting-item { display: flex; flex-direction: column; gap: 6px; }
+.profile-apps { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.app-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px; border-radius: 999px; background: rgba(139, 92, 246, 0.12); border: 1px solid var(--border); color: var(--text-main); font-size: 12px; }
+.app-chip-remove { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; }
+.app-chip-remove:hover { color: var(--error); }
+.profile-add-app { display: grid; grid-template-columns: 1.4fr 1fr auto; gap: 8px; }
+@media (max-width: 640px) {
+    .profile-row, .profile-add-app { grid-template-columns: 1fr; }
+}
+
+/* History corrections */
+.history-edit { width: 100%; margin-bottom: 12px; }
+.history-suggestions { display: flex; flex-direction: column; gap: 8px; padding: 12px; margin-bottom: 12px; border: 1px dashed var(--border); border-radius: 10px; background: rgba(139, 92, 246, 0.05); }
+.history-suggestion { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 13px; color: var(--text-main); }
+.history-suggestions-dismiss { align-self: flex-end; }

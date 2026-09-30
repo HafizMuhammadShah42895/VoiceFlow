@@ -1,7 +1,7 @@
 """Core services shared by the VoiceFlow desktop app and its UI."""
 
 from .audio import AudioCapture
-from .app_context import APP_RULES, AppContext, focus_window, get_foreground_app_context
+from .app_context import APP_RULES, AppContext, focus_window, get_foreground_app_context, list_open_apps
 from .clipboard import (
     capture_selection,
     force_release_modifiers,
@@ -22,15 +22,23 @@ from .llm import (
     LLMService,
 )
 from .overlay import AnimatedGIF, FloatingOverlay
+from .profiles import PROFILE_AI_POLISH, PROFILE_STYLES, normalize_app_name, parse_profiles, profile_for_app
 from .safe_logging import log
 from .secrets import CredentialStore
 from .single_instance import SingleInstance
-from .text_rules import apply_replacements, expand_snippet, parse_rules
+from .text_rules import apply_replacements, expand_snippet, parse_rules, suggest_replacements
 from .transcription import TranscriptionService
 from .tray import SystemTray
 from .version import APP_VERSION, is_newer_version
 
 __all__ = [
+    "suggest_replacements",
+    "profile_for_app",
+    "PROFILE_STYLES",
+    "PROFILE_AI_POLISH",
+    "parse_profiles",
+    "normalize_app_name",
+    "list_open_apps",
     "AudioCapture",
     "AnimatedGIF",
     "APP_VERSION",

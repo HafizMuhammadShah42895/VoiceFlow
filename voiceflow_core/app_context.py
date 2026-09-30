@@ -81,6 +81,41 @@ def _category_for_process(process_name: str) -> str:
     return "default"
 
 
+def _window_title(user32, hwnd) -> str:
+    import ctypes
+
+    title_buffer = ctypes.create_unicode_buffer(512)
+    user32.GetWindowTextW(hwnd, title_buffer, len(title_buffer))
+    return title_buffer.value
+
+
+def _process_name_for_window(hwnd) -> str:
+    """Return the lowercase executable name that owns a window, or ""."""
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.windll.user32
+    kernel32 = ctypes.windll.kernel32
+
+    pid = wintypes.DWORD()
+    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    if not pid.value:
+        return ""
+
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid.value)
+    if not handle:
+        return ""
+    try:
+        path_buffer = ctypes.create_unicode_buffer(4096)
+        size = wintypes.DWORD(len(path_buffer))
+        if not kernel32.QueryFullProcessImageNameW(handle, 0, path_buffer, ctypes.byref(size)):
+            return ""
+        return os.path.basename(path_buffer.value).lower()
+    finally:
+        kernel32.CloseHandle(handle)
+
+
 def get_foreground_app_context() -> AppContext:
     """Return the active app/process using local OS APIs only."""
     if sys.platform != "win32":
@@ -88,37 +123,16 @@ def get_foreground_app_context() -> AppContext:
 
     try:
         import ctypes
-        from ctypes import wintypes
 
         user32 = ctypes.windll.user32
-        kernel32 = ctypes.windll.kernel32
-
         hwnd = user32.GetForegroundWindow()
         if not hwnd:
             return AppContext()
 
-        title_buffer = ctypes.create_unicode_buffer(512)
-        user32.GetWindowTextW(hwnd, title_buffer, len(title_buffer))
-        window_title = title_buffer.value
-
-        pid = wintypes.DWORD()
-        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-        if not pid.value:
+        window_title = _window_title(user32, hwnd)
+        process_name = _process_name_for_window(hwnd)
+        if not process_name:
             return AppContext(window_title=window_title, window_handle=hwnd)
-
-        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-        handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid.value)
-        if not handle:
-            return AppContext(window_title=window_title, window_handle=hwnd)
-
-        try:
-            path_buffer = ctypes.create_unicode_buffer(4096)
-            size = wintypes.DWORD(len(path_buffer))
-            if not kernel32.QueryFullProcessImageNameW(handle, 0, path_buffer, ctypes.byref(size)):
-                return AppContext(window_title=window_title, window_handle=hwnd)
-            process_name = os.path.basename(path_buffer.value).lower()
-        finally:
-            kernel32.CloseHandle(handle)
 
         category = _category_for_process(process_name)
         instruction = APP_RULES.get(category, {}).get("instruction", "")
@@ -132,6 +146,62 @@ def get_foreground_app_context() -> AppContext:
     except Exception as e:
         log(f"Could not detect foreground app: {e}")
         return AppContext()
+
+
+def list_open_apps() -> list[dict[str, str]]:
+    """List apps that currently have a visible window, for choosing profile apps.
+
+    Returns one entry per executable: ``{"process_name": ..., "window_title": ...}``.
+    Only window titles and executable names are read, never window contents.
+    """
+    if sys.platform != "win32":
+        return []
+
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.windll.user32
+        own_pid = os.getpid()
+        apps: dict[str, str] = {}
+
+        EnumWindowsProc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+        def visit(hwnd, _lparam):
+            try:
+                if not user32.IsWindowVisible(hwnd) or user32.GetWindowTextLengthW(hwnd) == 0:
+                    return True
+                pid = wintypes.DWORD()
+                user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                if pid.value == own_pid:
+                    return True
+                process_name = _process_name_for_window(hwnd)
+                if process_name and process_name not in IGNORED_APP_PROCESSES:
+                    apps.setdefault(process_name, _window_title(user32, hwnd))
+            except Exception:
+                pass
+            return True
+
+        user32.EnumWindows(EnumWindowsProc(visit), 0)
+        return [
+            {"process_name": name, "window_title": title}
+            for name, title in sorted(apps.items())
+        ]
+    except Exception as e:
+        log(f"Could not list open apps: {e}")
+        return []
+
+
+# Shell and system windows that are never dictation targets.
+IGNORED_APP_PROCESSES = {
+    "explorer.exe",
+    "textinputhost.exe",
+    "applicationframehost.exe",
+    "shellexperiencehost.exe",
+    "searchhost.exe",
+    "startmenuexperiencehost.exe",
+    "systemsettings.exe",
+}
 
 
 def focus_window(window_handle: int) -> bool:

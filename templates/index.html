@@ -204,7 +204,7 @@
                                         <span class="toggle-slider"></span>
                                     </label>
                                 </div>
-                                <p class="setting-help">Uses only the focused app/window name. It does not read the app contents.</p>
+                                <p class="setting-help">Built-in rules for email, chat, code editors, browsers, and terminals. Uses only the focused app/window name, never the app contents. Your own Writing Profiles below always apply, even when this is off.</p>
                             </div>
 
                             <div class="setting-item full-width">
@@ -235,7 +235,18 @@
 
                         </div>
                     </section>
-                    
+
+                    <section class="card settings-section">
+                        <div class="card-header">
+                            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            <h3>Writing Profiles</h3>
+                        </div>
+                        <p class="setting-help">Give specific apps their own writing style. When you dictate in an app listed in a profile, that profile replaces the main settings above for that app.</p>
+                        <div id="profiles-container" class="presets-list"></div>
+                        <p id="profiles-empty" class="setting-help profiles-empty">No profiles yet. Example: a "Work chat" profile for Slack and Teams that keeps messages short, or a "Just type it" profile for Chrome with AI Polish off.</p>
+                        <button id="add-profile-btn" class="btn-secondary" type="button">+ Add profile</button>
+                    </section>
+
                     <section class="card settings-section">
                         <div class="card-header">
                             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>

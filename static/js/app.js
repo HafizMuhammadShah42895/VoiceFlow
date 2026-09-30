@@ -40,6 +40,23 @@
     const copyLastTranscript = document.getElementById('copy-last-transcript');
     const onboardingModal = document.getElementById('onboarding-modal');
     const onboardingFinish = document.getElementById('onboarding-finish');
+    const profilesContainer = document.getElementById('profiles-container');
+    const profilesEmpty = document.getElementById('profiles-empty');
+    const addProfileBtn = document.getElementById('add-profile-btn');
+
+    const PROFILE_STYLE_OPTIONS = [
+        ['default', 'Use my main writing style'],
+        ['natural', 'Natural — preserve my voice'],
+        ['concise', 'Concise — remove repetition'],
+        ['professional', 'Professional — polished and clear'],
+        ['casual', 'Casual — warm and conversational']
+    ];
+    const PROFILE_POLISH_OPTIONS = [
+        ['default', 'Follow the main AI Polish setting'],
+        ['on', 'Always polish in these apps'],
+        ['off', 'Off — type exactly what I say']
+    ];
+    const IS_WINDOWS = /Windows/i.test(navigator.userAgent);
 
     const tokenMeta = document.querySelector('meta[name="voiceflow-token"]');
     const API_TOKEN = tokenMeta ? tokenMeta.content : '';
@@ -58,11 +75,17 @@
     let historyData = [];
     let historySearchTimer = null;
     let apiKeyConfigured = false;
+    let profilesData = [];
+    let openApps = [];
+    let editingHistoryId = null;
+    let editingDraft = '';
+    const historySuggestions = {};
 
     function init() {
         loadHotkeyConfig();
         loadAnalytics();
         loadHistory();
+        loadOpenApps();
         bindEvents();
         startStatusPolling();
         checkAppUpdates();
@@ -108,6 +131,10 @@
             .replaceAll("'", '&#039;');
     }
 
+    function el(tag, props = {}) {
+        return Object.assign(document.createElement(tag), props);
+    }
+
     function historyItemText(item) {
         return (item && (item.final_text || item.raw_text) || '').trim();
     }
@@ -124,56 +151,87 @@
         historyEmpty.style.display = historyData.length ? 'none' : 'block';
 
         historyData.forEach(item => {
-            const card = document.createElement('article');
-            card.className = 'history-item';
+            const card = el('article', { className: 'history-item' });
             card.dataset.historyId = item.id;
+            const editing = editingHistoryId === item.id;
 
-            const header = document.createElement('div');
-            header.className = 'history-item-header';
-            const meta = document.createElement('span');
-            meta.className = 'history-meta';
+            const header = el('div', { className: 'history-item-header' });
             const duration = item.duration_ms ? ` · ${(item.duration_ms / 1000).toFixed(1)}s` : '';
-            meta.textContent = `${formatHistoryDate(item.created_at)} · ${item.mode}${duration}`;
-            const status = document.createElement('span');
+            const profileName = item.metadata && item.metadata.profile ? ` · ${item.metadata.profile}` : '';
+            const meta = el('span', {
+                className: 'history-meta',
+                textContent: `${formatHistoryDate(item.created_at)} · ${item.mode}${duration}${profileName}`
+            });
             const inProgress = !['completed', 'failed', 'cancelled'].includes(item.status);
-            status.className = `history-status ${item.status === 'failed' ? 'failed' : ''} ${inProgress ? 'processing' : ''}`;
-            status.textContent = item.status;
+            const status = el('span', {
+                className: `history-status ${item.status === 'failed' ? 'failed' : ''} ${inProgress ? 'processing' : ''}`,
+                textContent: item.status
+            });
             header.append(meta, status);
+            card.append(header);
 
-            const textBlock = document.createElement('p');
-            textBlock.className = 'history-text';
-            textBlock.textContent = historyItemText(item) || 'No transcript text was captured.';
-
-            card.append(header, textBlock);
+            if (editing) {
+                const editor = el('textarea', {
+                    className: 'input-field prompt-area history-edit',
+                    value: editingDraft,
+                    rows: 4
+                });
+                editor.setAttribute('aria-label', 'Corrected transcript');
+                card.append(editor);
+            } else {
+                card.append(el('p', {
+                    className: 'history-text',
+                    textContent: historyItemText(item) || 'No transcript text was captured.'
+                }));
+            }
             if (item.error_message) {
-                const error = document.createElement('p');
-                error.className = 'history-error';
-                error.textContent = item.error_message;
-                card.append(error);
+                card.append(el('p', { className: 'history-error', textContent: item.error_message }));
             }
 
-            const actions = document.createElement('div');
-            actions.className = 'history-actions';
-            const copy = document.createElement('button');
-            copy.className = 'btn-secondary history-copy';
-            copy.type = 'button';
-            copy.textContent = 'Copy';
-            copy.disabled = !historyItemText(item);
-            if (item.status === 'failed' && item.audio_path) {
-                const retry = document.createElement('button');
-                retry.className = 'btn-secondary history-retry';
-                retry.type = 'button';
-                retry.textContent = 'Retry';
-                actions.append(retry);
+            const suggestions = historySuggestions[item.id];
+            if (suggestions && suggestions.length) {
+                const panel = el('div', { className: 'history-suggestions' });
+                panel.append(el('p', {
+                    className: 'setting-help',
+                    textContent: 'Remember these fixes? They will be applied automatically next time:'
+                }));
+                suggestions.forEach((suggestion, index) => {
+                    const row = el('div', { className: 'history-suggestion' });
+                    row.append(el('span', { textContent: `“${suggestion.spoken}” → “${suggestion.replacement}”` }));
+                    const add = el('button', { className: 'btn-secondary history-suggestion-add', type: 'button', textContent: 'Add' });
+                    add.dataset.index = String(index);
+                    row.append(add);
+                    panel.append(row);
+                });
+                panel.append(el('button', { className: 'btn-secondary history-suggestions-dismiss', type: 'button', textContent: 'No thanks' }));
+                card.append(panel);
             }
-            const remove = document.createElement('button');
-            remove.className = 'btn-secondary history-delete';
-            remove.type = 'button';
-            remove.textContent = 'Delete';
-            actions.append(copy, remove);
+
+            const actions = el('div', { className: 'history-actions' });
+            if (editing) {
+                actions.append(
+                    el('button', { className: 'btn-secondary history-cancel', type: 'button', textContent: 'Cancel' }),
+                    el('button', { className: 'btn-primary history-save', type: 'button', textContent: 'Save fix' })
+                );
+            } else {
+                if (item.status === 'failed' && item.audio_path) {
+                    actions.append(el('button', { className: 'btn-secondary history-retry', type: 'button', textContent: 'Retry' }));
+                }
+                const hasText = Boolean(historyItemText(item));
+                actions.append(
+                    el('button', { className: 'btn-secondary history-fix', type: 'button', textContent: 'Fix', disabled: !hasText }),
+                    el('button', { className: 'btn-secondary history-copy', type: 'button', textContent: 'Copy', disabled: !hasText }),
+                    el('button', { className: 'btn-secondary history-delete', type: 'button', textContent: 'Delete' })
+                );
+            }
             card.append(actions);
             historyList.append(card);
         });
+
+        if (editingHistoryId) {
+            const editor = historyList.querySelector('.history-edit');
+            if (editor && document.activeElement !== editor) editor.focus();
+        }
     }
 
     async function loadHistory() {
@@ -226,6 +284,102 @@
             `;
             presetsContainer.appendChild(card);
         });
+    }
+
+    function normalizeAppName(name) {
+        let app = String(name || '').trim().replace(/^"|"$/g, '').split(/[\\/]/).pop().toLowerCase();
+        if (app && IS_WINDOWS && !app.endsWith('.exe')) app += '.exe';
+        return app;
+    }
+
+    function profileSelect(labelText, field, options, value) {
+        const wrapper = el('div', { className: 'setting-item' });
+        const select = el('select', { className: 'input-field' });
+        select.dataset.field = field;
+        options.forEach(([optionValue, text]) => select.append(el('option', { value: optionValue, textContent: text })));
+        select.value = value || 'default';
+        wrapper.append(el('label', { textContent: labelText }), select);
+        return wrapper;
+    }
+
+    function renderProfiles() {
+        if (!profilesContainer) return;
+        profilesContainer.replaceChildren();
+        if (profilesEmpty) profilesEmpty.style.display = profilesData.length ? 'none' : 'block';
+
+        profilesData.forEach((profile, index) => {
+            const card = el('div', { className: 'preset-card profile-card' });
+            card.dataset.idx = String(index);
+
+            const header = el('div', { className: 'preset-header' });
+            const name = el('input', {
+                className: 'preset-title-input',
+                type: 'text',
+                value: profile.name || '',
+                placeholder: 'Profile name'
+            });
+            name.dataset.field = 'name';
+            name.setAttribute('aria-label', 'Profile name');
+            header.append(name, el('button', { className: 'remove-preset-btn profile-remove', type: 'button', textContent: 'Remove' }));
+
+            const options = el('div', { className: 'profile-row' });
+            options.append(
+                profileSelect('Writing style', 'writing_style', PROFILE_STYLE_OPTIONS, profile.writing_style),
+                profileSelect('AI Polish', 'ai_polish', PROFILE_POLISH_OPTIONS, profile.ai_polish)
+            );
+
+            const instructions = el('textarea', {
+                className: 'input-field prompt-area',
+                rows: 2,
+                value: profile.instructions || '',
+                placeholder: 'Extra instructions (optional), e.g. "Start with Hi, and keep it under three sentences."'
+            });
+            instructions.dataset.field = 'instructions';
+            instructions.setAttribute('aria-label', 'Extra instructions');
+
+            const apps = el('div', { className: 'profile-apps' });
+            if (!profile.apps.length) {
+                apps.append(el('span', { className: 'setting-help', textContent: 'No apps yet. Add the apps this profile should apply to.' }));
+            }
+            profile.apps.forEach(app => {
+                const chip = el('span', { className: 'app-chip', textContent: app });
+                const remove = el('button', { className: 'app-chip-remove', type: 'button', textContent: '×', title: `Remove ${app}` });
+                remove.dataset.app = app;
+                remove.setAttribute('aria-label', `Remove ${app}`);
+                chip.append(remove);
+                apps.append(chip);
+            });
+
+            const addRow = el('div', { className: 'profile-add-app' });
+            const picker = el('select', { className: 'input-field profile-app-select' });
+            picker.setAttribute('aria-label', 'Choose an open app');
+            picker.append(el('option', {
+                value: '',
+                textContent: openApps.length ? 'Choose an open app…' : 'Open the app, or type its name →'
+            }));
+            openApps.forEach(app => {
+                const label = app.window_title ? `${app.process_name} — ${app.window_title}` : app.process_name;
+                picker.append(el('option', { value: app.process_name, textContent: label.slice(0, 70) }));
+            });
+            const typed = el('input', { className: 'input-field profile-app-input', type: 'text', placeholder: 'e.g. slack.exe' });
+            typed.setAttribute('aria-label', 'App name');
+            addRow.append(picker, typed, el('button', { className: 'btn-secondary profile-app-add', type: 'button', textContent: 'Add app' }));
+
+            card.append(header, options, instructions, el('label', { textContent: 'Used in these apps' }), apps, addRow);
+            profilesContainer.append(card);
+        });
+    }
+
+    function loadOpenApps() {
+        apiFetch('/api/apps')
+            .then(r => r.json())
+            .then(data => {
+                if (!data.ok) return;
+                openApps = data.apps || [];
+                // Do not rebuild the cards while the user is typing in one.
+                if (!profilesContainer || !profilesContainer.contains(document.activeElement)) renderProfiles();
+            })
+            .catch(() => {});
     }
 
     function loadAnalytics() {
@@ -338,6 +492,10 @@
                     presetsData = data.ai_presets;
                     renderPresets();
                 }
+                if (Array.isArray(data.writing_profiles)) {
+                    profilesData = data.writing_profiles;
+                    renderProfiles();
+                }
                 if (onboardingModal && data.onboarding_complete === false) {
                     onboardingModal.hidden = false;
                 }
@@ -405,6 +563,21 @@
             usedPresetShortcuts.add(id);
         }
 
+        const appOwners = {};
+        for (const profile of profilesData) {
+            if (!String(profile.name || '').trim()) {
+                showToast('Give every writing profile a name');
+                return;
+            }
+            for (const app of profile.apps) {
+                if (appOwners[app]) {
+                    showToast(`${app} is in both "${appOwners[app]}" and "${profile.name}"`);
+                    return;
+                }
+                appOwners[app] = profile.name;
+            }
+        }
+
         const configPayload = {
                 key1: k1, key2: k2, 
                 context_key1: ck1,
@@ -425,7 +598,8 @@
                 main_dictation_ai: mainDictationAi,
                 context_prompt: cp,
                 dictation_language: lang,
-                ai_presets: presetsData
+                ai_presets: presetsData,
+                writing_profiles: profilesData
         };
         if (key) configPayload.api_key = key;
 
@@ -443,6 +617,8 @@
                     apiKey.placeholder = 'Saved securely — enter a new key to replace it';
                 }
                 updateHotkeyLabels([k1, k2]);
+                // The server normalizes app names; show exactly what was saved.
+                loadHotkeyConfig();
                 showToast('Settings successfully applied!');
             } else {
                 showToast(data.error || 'Failed to update settings');
@@ -462,7 +638,7 @@
                     // A dictation just finished: refresh the counters and history once.
                     if (lastStatus && lastStatus !== 'idle' && data.status === 'idle') {
                         loadAnalytics();
-                        loadHistory();
+                        if (!editingHistoryId) loadHistory();
                     }
                     lastStatus = data.status;
                 })
@@ -667,6 +843,74 @@
                 const item = historyData.find(entry => entry.id === card.dataset.historyId);
                 if (!item) return;
 
+                if (event.target.closest('.history-fix')) {
+                    editingHistoryId = item.id;
+                    editingDraft = historyItemText(item);
+                    renderHistory();
+                    return;
+                }
+
+                if (event.target.closest('.history-cancel')) {
+                    editingHistoryId = null;
+                    renderHistory();
+                    return;
+                }
+
+                if (event.target.closest('.history-save')) {
+                    const saveButton = event.target.closest('.history-save');
+                    saveButton.disabled = true;
+                    try {
+                        const response = await apiFetch(`/api/history/${encodeURIComponent(item.id)}/correct`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ text: editingDraft })
+                        });
+                        const data = await response.json();
+                        if (!response.ok || !data.ok) throw new Error(data.error || 'Could not save the fix');
+                        historyData = historyData.map(entry => entry.id === item.id ? data.item : entry);
+                        editingHistoryId = null;
+                        if (data.suggestions && data.suggestions.length) historySuggestions[item.id] = data.suggestions;
+                        renderHistory();
+                        showToast('Transcript fixed');
+                    } catch (error) {
+                        saveButton.disabled = false;
+                        showToast(error.message || 'Could not save the fix');
+                    }
+                    return;
+                }
+
+                if (event.target.closest('.history-suggestions-dismiss')) {
+                    delete historySuggestions[item.id];
+                    renderHistory();
+                    return;
+                }
+
+                const addSuggestion = event.target.closest('.history-suggestion-add');
+                if (addSuggestion) {
+                    const suggestion = (historySuggestions[item.id] || [])[Number(addSuggestion.dataset.index)];
+                    if (!suggestion) return;
+                    addSuggestion.disabled = true;
+                    try {
+                        const response = await apiFetch('/api/replacements', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(suggestion)
+                        });
+                        const data = await response.json();
+                        if (!response.ok || !data.ok) throw new Error(data.error || 'Could not add the replacement');
+                        if (textReplacements) textReplacements.value = data.text_replacements;
+                        historySuggestions[item.id] = historySuggestions[item.id].filter(entry => entry !== suggestion);
+                        renderHistory();
+                        showToast(data.added
+                            ? `Added: ${suggestion.spoken} → ${suggestion.replacement}`
+                            : `A replacement for "${suggestion.spoken}" already exists`);
+                    } catch (error) {
+                        addSuggestion.disabled = false;
+                        showToast(error.message || 'Could not add the replacement');
+                    }
+                    return;
+                }
+
                 if (event.target.closest('.history-copy')) {
                     if (await copyText(historyItemText(item))) showToast('Transcript copied');
                     else showToast('Failed to copy transcript');
@@ -706,6 +950,80 @@
             });
         }
         
+        if (historyList) {
+            historyList.addEventListener('input', event => {
+                if (event.target.classList.contains('history-edit')) editingDraft = event.target.value;
+            });
+        }
+
+        if (addProfileBtn) {
+            addProfileBtn.addEventListener('click', () => {
+                profilesData.push({
+                    id: 'profile_' + Date.now(),
+                    name: 'New profile',
+                    apps: [],
+                    writing_style: 'default',
+                    ai_polish: 'default',
+                    instructions: ''
+                });
+                renderProfiles();
+                loadOpenApps();
+                const names = profilesContainer.querySelectorAll('.preset-title-input');
+                if (names.length) names[names.length - 1].select();
+            });
+        }
+
+        if (profilesContainer) {
+            const updateField = event => {
+                const card = event.target.closest('.profile-card');
+                const field = event.target.dataset.field;
+                if (!card || !field) return;
+                profilesData[Number(card.dataset.idx)][field] = event.target.value;
+            };
+            profilesContainer.addEventListener('input', updateField);
+            profilesContainer.addEventListener('change', updateField);
+
+            profilesContainer.addEventListener('click', event => {
+                const card = event.target.closest('.profile-card');
+                if (!card) return;
+                const profile = profilesData[Number(card.dataset.idx)];
+
+                if (event.target.closest('.profile-remove')) {
+                    profilesData.splice(Number(card.dataset.idx), 1);
+                    renderProfiles();
+                    return;
+                }
+
+                const chipRemove = event.target.closest('.app-chip-remove');
+                if (chipRemove) {
+                    profile.apps = profile.apps.filter(app => app !== chipRemove.dataset.app);
+                    renderProfiles();
+                    return;
+                }
+
+                if (event.target.closest('.profile-app-add')) {
+                    const typed = card.querySelector('.profile-app-input').value;
+                    const picked = card.querySelector('.profile-app-select').value;
+                    const app = normalizeAppName(typed || picked);
+                    if (!app) {
+                        showToast('Choose an open app or type its name');
+                        return;
+                    }
+                    const owner = profilesData.find(other => other.apps.includes(app));
+                    if (owner) {
+                        showToast(owner === profile ? `${app} is already in this profile` : `${app} is already in "${owner.name}"`);
+                        return;
+                    }
+                    profile.apps.push(app);
+                    renderProfiles();
+                }
+            });
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') loadOpenApps();
+        });
+
         if (addPresetBtn) {
             addPresetBtn.addEventListener('click', (e) => {
                 e.preventDefault();

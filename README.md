@@ -16,6 +16,10 @@ transcript into the focused app.
 - Searchable local transcript history with Copy and Delete controls
 - Crash recovery with Retry for interrupted recordings
 - Writing styles, deterministic word replacements, and reusable voice snippets
+- Writing profiles per app: give Slack, Outlook, Chrome, etc. their own style,
+  AI Polish on/off, and instructions (pick apps from the ones currently open)
+- Learning from corrections: fix a transcript in History and VoiceFlow offers to
+  save the change as a word replacement (e.g. "docker compose" → "docker-compose")
 - Configurable history retention and one-click local-history deletion
 - Groq API keys stored in the operating-system credential store
 - File transcription and a compact mini window

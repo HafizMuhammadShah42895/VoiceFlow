@@ -29,6 +29,22 @@ class _FakeAgent:
     def get_analytics(self):
         return {"total_words": 2, "sessions": 1}
 
+    def list_open_apps(self):
+        return [{"process_name": "slack.exe", "window_title": "Slack"}]
+
+    def correct_history_item(self, job_id, text):
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("The corrected text cannot be empty")
+        item = self.get_history_item(job_id)
+        if not item:
+            return None
+        item["final_text"] = text
+        return {"item": item, "suggestions": [{"spoken": "hello", "replacement": "Hello!"}]}
+
+    def add_replacement(self, spoken, replacement):
+        self.text_replacements = f"{spoken} => {replacement}"
+        return True
+
     def get_history(self, limit=100, offset=0, query=""):
         return self.items[offset:offset + limit]
 
@@ -126,6 +142,22 @@ class ApiTests(unittest.TestCase):
         response = self.post("/api/config", data="", content_type="application/json")
         self.assertEqual(response.status_code, 400)
         self.assertFalse(response.get_json()["ok"])
+
+    def test_open_apps_endpoint(self):
+        data = self.get("/api/apps").get_json()
+        self.assertEqual(data["apps"][0]["process_name"], "slack.exe")
+
+    def test_correct_history_and_add_replacement(self):
+        response = self.post("/api/history/item-1/correct", json={"text": "Hello!"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["item"]["final_text"], "Hello!")
+        self.assertEqual(response.get_json()["suggestions"][0]["spoken"], "hello")
+        self.assertEqual(self.post("/api/history/item-1/correct", json={"text": " "}).status_code, 400)
+        self.assertEqual(self.post("/api/history/missing/correct", json={"text": "x"}).status_code, 404)
+
+        added = self.post("/api/replacements", json={"spoken": "hello", "replacement": "Hello!"}).get_json()
+        self.assertTrue(added["added"])
+        self.assertEqual(added["text_replacements"], "hello => Hello!")
 
     def test_analytics_endpoint(self):
         self.assertEqual(self.get("/api/analytics").get_json(), {"total_words": 2, "sessions": 1})
