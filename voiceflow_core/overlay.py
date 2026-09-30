@@ -6,6 +6,8 @@ import time
 
 NOTIFICATION_SECONDS = 2.0
 ERROR_SECONDS = 3.0
+# Gap between the bottom of the HUD and the taskbar / bottom of the screen.
+BOTTOM_MARGIN = 48
 
 _STATE_ICONS = {
     "listening": ("◉", "#f38ba8"),
@@ -15,6 +17,60 @@ _STATE_ICONS = {
     "notification": ("✓", "#a6e3a1"),
 }
 _TRANSIENT_STATES = {"notification", "error"}
+
+
+def _enable_dpi_awareness() -> None:
+    """Use real screen pixels before Tk measures the screen.
+
+    pywebview switches the whole process to DPI-aware when the dashboard opens.
+    If Tk started first it keeps its scaled measurements (e.g. 1536x864 on a
+    1920x1080 screen at 125%), which put the HUD left of centre and too high.
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+
+        ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
+
+
+def _active_work_area():
+    """Work area (screen minus taskbar) of the monitor the user is working on.
+
+    Returns ``(left, top, right, bottom)`` in screen pixels, or None if unknown.
+    """
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class MONITORINFO(ctypes.Structure):
+            _fields_ = [
+                ("cbSize", wintypes.DWORD),
+                ("rcMonitor", wintypes.RECT),
+                ("rcWork", wintypes.RECT),
+                ("dwFlags", wintypes.DWORD),
+            ]
+
+        user32 = ctypes.windll.user32
+        user32.GetForegroundWindow.restype = wintypes.HWND
+        user32.MonitorFromWindow.argtypes = [wintypes.HWND, wintypes.DWORD]
+        user32.MonitorFromWindow.restype = wintypes.HMONITOR
+        user32.GetMonitorInfoW.argtypes = [wintypes.HMONITOR, ctypes.POINTER(MONITORINFO)]
+
+        MONITOR_DEFAULTTOPRIMARY = 1
+        monitor = user32.MonitorFromWindow(user32.GetForegroundWindow(), MONITOR_DEFAULTTOPRIMARY)
+        info = MONITORINFO()
+        info.cbSize = ctypes.sizeof(MONITORINFO)
+        if not monitor or not user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
+            return None
+        work = info.rcWork
+        return work.left, work.top, work.right, work.bottom
+    except Exception:
+        return None
 
 
 class AnimatedGIF:
@@ -56,10 +112,14 @@ class FloatingOverlay:
         self.gifs = {}
         self.frame_count = 0
         self._rendered = None
+        self._visible = False
+        self._work_area = None
+        self._position = None
 
     def start(self) -> None:
         import tkinter as tk
 
+        _enable_dpi_awareness()
         self.root = tk.Tk()
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
@@ -108,11 +168,12 @@ class FloatingOverlay:
         state = self.current_state
         if state == "idle":
             self._rendered = None
-            if self.root:
+            if self.root and self._visible:
                 self.root.withdraw()
+                self._visible = False
         else:
             self._render(state)
-            self._show_centered()
+            self._show_at_bottom_center()
 
         if self.root:
             self.root.after(50, self.update_loop)
@@ -136,17 +197,32 @@ class FloatingOverlay:
         self._rendered = key
         self.label.config(image=frame or "", text=text, fg=color, font=font)
 
-    def _show_centered(self) -> None:
+    def _show_at_bottom_center(self) -> None:
+        """Place the HUD centred just above the taskbar of the active monitor."""
         if not self.root:
             return
-        self.root.deiconify()
         self.root.update_idletasks()
-        ws = self.root.winfo_screenwidth()
-        hs = self.root.winfo_screenheight()
-        w = self.root.winfo_width()
-        x = (ws - w) // 2
-        y = hs - 150
-        self.root.geometry(f"+{x}+{y}")
+        # Requested size is correct even before the window is first drawn,
+        # unlike winfo_width(), which reports 1 until then.
+        width = self.root.winfo_reqwidth()
+        height = self.root.winfo_reqheight()
+
+        if not self._visible:
+            # Pick the monitor once per appearance so the HUD never jumps around.
+            self._work_area = _active_work_area() or (
+                0, 0, self.root.winfo_screenwidth(), self.root.winfo_screenheight()
+            )
+        left, top, right, bottom = self._work_area
+        x = left + (right - left - width) // 2
+        y = max(top, bottom - height - BOTTOM_MARGIN)
+
+        if (x, y, width, height) != self._position:
+            self._position = (x, y, width, height)
+            self.root.geometry(f"+{x}+{y}")
+        if not self._visible:
+            self.root.deiconify()
+            self.root.lift()
+            self._visible = True
 
     def _transient_active(self) -> bool:
         return self.current_state in _TRANSIENT_STATES and time.time() <= self.transient_end_time
