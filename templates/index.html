@@ -26,6 +26,10 @@
                     <svg viewBox="0 0 24 24"><path d="M12 2v20"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
                     File Transcription
                 </a>
+                <a href="#" class="nav-item" onclick="switchTab('history-tab', this); window.loadHistory(); return false;">
+                    <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 3v6h6"></path><path d="M12 7v5l3 2"></path></svg>
+                    History
+                </a>
                 <a href="#" class="nav-item" onclick="switchTab('instructions-tab', this); return false;">
                     <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
                     How to Use
@@ -43,7 +47,13 @@
                         About Developer
                     </a>
                 </div>
-                <div class="version">VoiceFlow v3.0</div>
+                <div id="update-banner" class="update-banner" style="display: none;">
+                    <a id="update-link" href="#" target="_blank">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5m-7 7l7-7 7 7"/></svg>
+                        <span>Update: v<span id="update-version"></span></span>
+                    </a>
+                </div>
+                <div class="version">VoiceFlow v{{ app_version }}</div>
             </div>
         </aside>
 
@@ -91,10 +101,10 @@
                             <div class="setting-item full-width">
                                 <div class="setting-header">
                                     <div class="setting-label-group">
-                                        <label>Main Dictation</label>
+                                        <label>Main Hotkey</label>
                                         <div class="tooltip-container">
                                             <div class="tooltip-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
-                                            <div class="tooltip-text">Hold this combination anywhere to dictate text perfectly into your active app.</div>
+                                            <div class="tooltip-text">Use this for normal dictation. If text is selected, VoiceFlow records your instruction and rewrites that selected text instead.</div>
                                         </div>
                                     </div>
                                 </div>
@@ -155,26 +165,10 @@
                             <div class="setting-item full-width">
                                 <div class="setting-header">
                                     <div class="setting-label-group">
-                                        <label for="filler-words-toggle">Smart Filler Word Removal</label>
-                                        <div class="tooltip-container">
-                                            <div class="tooltip-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
-                                            <div class="tooltip-text">Automatically scrub out "ums", "uhs", and stutters from your dictation using AI.</div>
-                                        </div>
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="filler-words-toggle">
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div class="setting-item full-width">
-                                <div class="setting-header">
-                                    <div class="setting-label-group">
                                         <label for="main-dictation-ai-toggle">AI Polish for Normal Dictation</label>
                                         <div class="tooltip-container">
                                             <div class="tooltip-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
-                                            <div class="tooltip-text">If ON, your normal dictation (Alt+Shift) will be passed through AI for grammar correction. If OFF, dictation will type instantly without AI formatting.</div>
+                                            <div class="tooltip-text">If ON, normal dictation is polished for grammar and structure, and unnecessary filler words, repetitions, stutters, and false starts are removed. If OFF, dictation is typed without AI formatting.</div>
                                         </div>
                                     </div>
                                     <label class="toggle-switch">
@@ -182,6 +176,46 @@
                                         <span class="toggle-slider"></span>
                                     </label>
                                 </div>
+                            </div>
+
+                            <div class="setting-item full-width">
+                                <label for="writing-style-select">Writing Style</label>
+                                <select id="writing-style-select" class="input-field">
+                                    <option value="natural">Natural — preserve my voice</option>
+                                    <option value="concise">Concise — remove repetition</option>
+                                    <option value="professional">Professional — polished and clear</option>
+                                    <option value="casual">Casual — warm and conversational</option>
+                                </select>
+                                <p class="setting-help">Applied when AI Polish is enabled.</p>
+                            </div>
+
+                            <div class="setting-item full-width">
+                                <div class="setting-header">
+                                    <div class="setting-label-group">
+                                        <label for="app-aware-toggle">Application-Aware Formatting</label>
+                                        <div class="tooltip-container">
+                                            <div class="tooltip-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
+                                            <div class="tooltip-text">Detects the active app name locally and adjusts AI Polish for email, chat, code editors, browsers, and terminals.</div>
+                                        </div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="app-aware-toggle" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <p class="setting-help">Uses only the focused app/window name. It does not read the app contents.</p>
+                            </div>
+
+                            <div class="setting-item full-width">
+                                <label for="text-replacements">Word Replacements</label>
+                                <textarea id="text-replacements" class="input-field prompt-area" placeholder="voice flow => VoiceFlow&#10;open ai => OpenAI"></textarea>
+                                <p class="setting-help">One rule per line using spoken phrase =&gt; replacement. Works without AI.</p>
+                            </div>
+
+                            <div class="setting-item full-width">
+                                <label for="voice-snippets">Voice Snippets</label>
+                                <textarea id="voice-snippets" class="input-field prompt-area" placeholder="my email => hello@example.com&#10;sign off => Best regards,&#10;Your name"></textarea>
+                                <p class="setting-help">Say the trigger as the entire dictation to insert reusable text instantly.</p>
                             </div>
 
                             <div class="setting-item full-width" style="margin-top: 10px;">
@@ -198,21 +232,6 @@
                                 <textarea id="context-prompt" class="input-field prompt-area"></textarea>
                             </div>
 
-                            <div class="setting-item full-width" style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 24px;">
-                                <div class="prompt-header">
-                                    <div class="setting-label-group">
-                                        <label>Custom AI Presets</label>
-                                        <div class="tooltip-container">
-                                            <div class="tooltip-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
-                                            <div class="tooltip-text">Highlight messy text anywhere on your PC and press a custom hotkey to rewrite it using these specific instructions.</div>
-                                        </div>
-                                    </div>
-                                    <a href="#" id="add-preset-btn" class="reset-link">+ Add Preset</a>
-                                </div>
-                                <div id="presets-container" class="presets-list">
-                                    <!-- JS will populate presets here -->
-                                </div>
-                            </div>
                         </div>
                     </section>
                     
@@ -238,6 +257,37 @@
                                 </select>
                             </div>
 
+                            <div class="setting-item full-width">
+                                <label for="trigger-mode-select">Dictation Trigger Mode</label>
+                                <select id="trigger-mode-select" class="input-field">
+                                    <option value="hold">Push-to-Talk: hold shortcut to speak</option>
+                                    <option value="toggle">Toggle Mode: press once to start, press again to stop</option>
+                                </select>
+                                <p class="setting-help">Press Esc anytime while recording to cancel without typing anything.</p>
+                            </div>
+
+                            <div class="setting-item">
+                                <div class="setting-header" style="height: 100%;">
+                                    <div class="setting-label-group">
+                                        <label for="silence-auto-stop-toggle">Silence Auto-Stop</label>
+                                        <p class="setting-help" style="margin-bottom: 0;">Works in Toggle Mode.</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="silence-auto-stop-toggle">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="setting-item">
+                                <label for="silence-timeout-select">Stop After Silence</label>
+                                <select id="silence-timeout-select" class="input-field">
+                                    <option value="3" selected>3 seconds</option>
+                                    <option value="5">5 seconds</option>
+                                    <option value="8">8 seconds</option>
+                                </select>
+                            </div>
+
                             <div class="setting-item">
                                 <label for="language-select">Dictation Language</label>
                                 <select id="language-select" class="input-field">
@@ -260,6 +310,17 @@
                                         <span class="toggle-slider"></span>
                                     </label>
                                 </div>
+                            </div>
+
+                            <div class="setting-item full-width">
+                                <label for="history-retention-select">Transcript History</label>
+                                <select id="history-retention-select" class="input-field">
+                                    <option value="7">Keep for 7 days</option>
+                                    <option value="30">Keep for 30 days</option>
+                                    <option value="90">Keep for 90 days</option>
+                                    <option value="0">Keep until I delete it</option>
+                                </select>
+                                <p class="setting-help">Stored only on this computer. Failed-recording audio is deleted after a successful recovery.</p>
                             </div>
                         </div>
                     </section>
@@ -296,7 +357,11 @@
 
                             <div class="setting-item full-width">
                                 <label for="api-key">Groq API Key</label>
-                                <input type="password" id="api-key" placeholder="gsk_..." class="input-field">
+                                <div class="inline-control">
+                                    <input type="password" id="api-key" placeholder="gsk_..." class="input-field" autocomplete="off">
+                                    <button id="clear-api-key" type="button" class="btn-secondary history-delete">Remove saved key</button>
+                                </div>
+                                <p class="setting-help">Saved in your operating-system credential store, not in VoiceFlow's config file.</p>
                             </div>
 
                             <div class="setting-item full-width">
@@ -347,6 +412,26 @@
                     </section>
                 </div>
 
+                <!-- Tab: History -->
+                <div id="history-tab" class="tab-content">
+                    <section class="card">
+                        <div class="history-header">
+                            <div>
+                                <h3>Transcript history</h3>
+                                <p class="subtitle">Your dictations are saved locally so a failed paste never loses your work.</p>
+                            </div>
+                            <button id="copy-last-transcript" class="btn-primary" type="button">Copy latest</button>
+                        </div>
+                        <div class="history-toolbar">
+                            <input id="history-search" class="input-field" type="search" placeholder="Search transcripts" aria-label="Search transcript history">
+                            <button id="history-refresh" class="btn-secondary" type="button">Refresh</button>
+                            <button id="history-clear" class="btn-secondary history-delete" type="button">Clear all</button>
+                        </div>
+                        <div id="history-list" class="history-list" aria-live="polite"></div>
+                        <p id="history-empty" class="history-empty">No transcripts yet. Your next dictation will appear here.</p>
+                    </section>
+                </div>
+
                 <!-- Tab: Instructions -->
                 <div id="instructions-tab" class="tab-content">
                     <section class="card">
@@ -357,7 +442,7 @@
                         
                         <div class="step">
                             <div class="step-num">1</div>
-                            <p><strong>Normal Dictation (Alt + Shift):</strong> Hold your Dictation Hotkey anywhere to speak. Release the keys to let VoiceFlow automatically paste the text into your active app. Try saying things like "new paragraph" or "comma" for flawless voice formatting!</p>
+                            <p><strong>Main Hotkey (Alt + Shift):</strong> If no text is selected, VoiceFlow does normal dictation. If text is selected, speak an instruction like "make this professional" and VoiceFlow rewrites the selected text. Press Esc anytime to cancel.</p>
                         </div>
                         <div class="step">
                             <div class="step-num">2</div>
@@ -365,15 +450,15 @@
                         </div>
                         <div class="step">
                             <div class="step-num">3</div>
-                            <p><strong>AI Highlight Rewrite (Custom Presets):</strong> Highlight any messy text on your screen and press a custom preset hotkey (e.g., Ctrl + Space) to instantly rewrite and fix it in place. Add as many custom presets as you'd like in the settings!</p>
+                            <p><strong>Undo Voice Edit:</strong> If the selected-text rewrite is not what you wanted, use the normal Ctrl + Z undo in the app where the text was replaced.</p>
                         </div>
                         <div class="step">
                             <div class="step-num">4</div>
-                            <p><strong>Dictation Output Mode:</strong> If Auto-Type isn't pasting correctly in certain apps, go to Settings and change your output mode to <strong>"Copy to Clipboard Only"</strong>. Then simply press Ctrl+V to paste your dictation perfectly every time.</p>
+                            <p><strong>Application-Aware Formatting:</strong> When AI Polish is on, VoiceFlow checks the active app name locally and adapts the result. Email becomes more professional, chat becomes shorter, code editors preserve code-like text, and terminals preserve commands.</p>
                         </div>
                         <div class="step" style="margin-bottom: 0;">
                             <div class="step-num">5</div>
-                            <p><strong>Smart Filler Word Removal:</strong> Enable this in settings to have the AI magically scrub out all the "ums", "uhs", and stutters from your dictation before typing it out.</p>
+                            <p><strong>Dictation Output Mode:</strong> If Auto-Type isn't pasting correctly in certain apps, go to Settings and change your output mode to <strong>"Copy to Clipboard Only"</strong>. Then simply press Ctrl+V to paste your dictation perfectly every time.</p>
                         </div>
                     </section>
 
@@ -394,6 +479,65 @@
         </main>
         
         <div id="toast" class="toast" role="alert" aria-live="polite"></div>
+    </div>
+
+    <div id="onboarding-modal" class="onboarding-backdrop" hidden>
+        <section class="onboarding-card" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+            <div class="onboarding-header">
+                <img src="/static/img/logo_icon.jpg" alt="" class="onboarding-logo">
+                <div class="wizard-steps-indicator">
+                    <span class="step-dot active" id="dot-1"></span>
+                    <span class="step-dot" id="dot-2"></span>
+                    <span class="step-dot" id="dot-3"></span>
+                </div>
+            </div>
+
+            <!-- Step 1: Welcome & Overview -->
+            <div id="wizard-step-1" class="wizard-step active">
+                <h2 id="onboarding-title">Welcome to VoiceFlow</h2>
+                <p class="subtitle">Turn spoken words into polished text in any Windows app. Fast, private, and local-first.</p>
+                <div class="onboarding-points">
+                    <div><strong>1. Push-to-Talk (Alt + Shift)</strong><span>Hold the keys, speak your thoughts, and release to paste.</span></div>
+                    <div><strong>2. Context-Aware Reply (Ctrl + Shift)</strong><span>Hold while replying to text copied on your clipboard.</span></div>
+                    <div><strong>3. Local-First Privacy</strong><span>Your history stays on this PC. Cloud AI is used only if chosen.</span></div>
+                </div>
+                <div class="wizard-actions">
+                    <button id="wizard-next-1" class="btn-primary" type="button">Next: Test Microphone →</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Microphone Check -->
+            <div id="wizard-step-2" class="wizard-step" style="display: none;">
+                <h2>Microphone Test</h2>
+                <p class="subtitle">Speak a few words to confirm VoiceFlow can hear your voice clearly.</p>
+                <div class="mic-test-container">
+                    <div class="mic-icon-wrapper" id="mic-icon-wrapper">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                    </div>
+                    <div class="meter-bar-wrapper">
+                        <div id="mic-meter-fill" class="meter-bar-fill" style="width: 0%;"></div>
+                    </div>
+                    <div id="mic-status-label" class="mic-status-label">Listening for speech...</div>
+                </div>
+                <div class="wizard-actions dual">
+                    <button id="wizard-prev-2" class="btn-secondary" type="button">← Back</button>
+                    <button id="wizard-next-2" class="btn-primary" type="button">Next: Try Dictation →</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Practice Dictation -->
+            <div id="wizard-step-3" class="wizard-step" style="display: none;">
+                <h2>Practice Dictating</h2>
+                <p class="subtitle">Click into the practice box below, hold <strong style="color: var(--accent-light);">Alt + Shift</strong>, say something, and release!</p>
+                <div class="practice-box-container">
+                    <textarea id="practice-dictation-box" class="input-field" placeholder="Click here, then hold Alt + Shift to dictate your first test sentence..." rows="3"></textarea>
+                </div>
+                <div class="wizard-actions dual">
+                    <button id="wizard-prev-3" class="btn-secondary" type="button">← Back</button>
+                    <button id="onboarding-finish" class="btn-primary" type="button">Start using VoiceFlow ✨</button>
+                </div>
+            </div>
+        </section>
     </div>
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>

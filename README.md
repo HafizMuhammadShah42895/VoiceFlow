@@ -1,48 +1,69 @@
-# Voice-to-Text Writing System
+# VoiceFlow
 
-A lightweight dictation system that types what you say into **any application** using global hotkeys.
+VoiceFlow is a Windows desktop dictation app that turns speech into text in any
+application. Hold the global dictation shortcut, speak, and release to paste the
+transcript into the focused app.
 
-## How it works
+## Current release: 3.1.0
 
-A Python background agent listens for a **push-to-talk hotkey** (default: hold **W + R**). While you hold the keys, it records your microphone. When you release, it transcribes the speech and types the text into whatever window has focus — Notepad, Chrome, VS Code, anything.
+- Global push-to-talk dictation (default: **Alt + Shift**)
+- Local Faster-Whisper or Groq Whisper transcription
+- Optional AI Polish with filler, repetition, stutter, and false-start cleanup
+- Context-aware replies based on explicitly copied clipboard text
+- Custom highlight-and-rewrite presets with validated global shortcuts
+- Searchable local transcript history with Copy and Delete controls
+- Crash recovery with Retry for interrupted recordings
+- Writing styles, deterministic word replacements, and reusable voice snippets
+- Configurable history retention and one-click local-history deletion
+- Groq API keys stored in the operating-system credential store
+- File transcription and a compact mini window
+- First-run onboarding and selectable text throughout the app
 
-## Features
-
-- **Global dictation** — types into any app, not just the web editor
-- **Push-to-talk** — hold W+R to record, release to transcribe & type
-- **Configurable hotkey** — change the key combo in Settings
-- **Web editor** — save, copy, clear, word/char count, dark mode, auto-save
+History is stored in `~/.voiceflow/voiceflow.db`. Temporary recovery audio is
+kept only when a recording fails or the app is interrupted, then removed after
+a successful retry or when its history item is deleted.
 
 ## Run locally
 
-```bash
-# 1. Create virtual environment
-python -m venv venv
-venv\Scripts\activate
-
-# 2. Install dependencies (may prompt to install Microsoft Visual C++ build tools for pyaudio)
-pip install -r requirements.txt
-
-# 3. Start the server + dictation agent
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 python app.py
-
-# 4. Open browser
-start http://localhost:5000
 ```
 
-## Usage
+The desktop window opens automatically. The local dashboard is served only on
+`127.0.0.1:5000`.
 
-1. Open `http://localhost:5000` in your browser
-2. Click any window (Notepad, browser, editor) to put the cursor where you want text
-3. Press and **hold** W + R on your keyboard
-4. Speak clearly into your microphone
-5. Release W + R — the transcribed text appears at your cursor
-6. Repeat anytime
+## Test
 
-To change the hotkey, click the gear icon in the web editor and set two keys.
+```powershell
+python -m unittest discover -s tests -v
+python -m compileall -q app.py dictation_agent.py voiceflow_core build.py
+node --check static\js\app.js
+```
 
-## Notes
+## Build for Windows
 
-- Requires microphone access
-- Transcription uses Google's free speech recognition API (requires internet)
-- The web editor is optional — dictation works globally even without it
+```powershell
+python build.py
+```
+
+This creates `dist\VoiceFlow.exe`. With Inno Setup 6 installed, create the
+installer with:
+
+```powershell
+ISCC.exe VoiceFlow.iss
+```
+
+The resulting installer is `dist\VoiceFlow_Setup.exe`.
+
+## Privacy notes
+
+- Local Whisper transcription stays on the computer.
+- Groq transcription and AI features send the relevant audio or text to Groq
+  only when those options are selected.
+- Context-aware reply mode reads clipboard text because copied text is the
+  context supplied by the user.
+- Transcript history and recovery audio are local and can be cleared in the
+  History screen.

@@ -9,13 +9,21 @@
     const resetContextPromptBtn = document.getElementById('reset-context-prompt-btn');
     const mainDictationAiToggle = document.getElementById('main-dictation-ai-toggle');
     const apiKey = document.getElementById('api-key');
+    const clearApiKey = document.getElementById('clear-api-key');
     const startupToggle = document.getElementById('startup-toggle');
     const languageSelect = document.getElementById('language-select');
     const transcriptionEngineSelect = document.getElementById('transcription-engine-select');
     const customVocabulary = document.getElementById('custom-vocabulary');
+    const writingStyleSelect = document.getElementById('writing-style-select');
+    const textReplacements = document.getElementById('text-replacements');
+    const voiceSnippets = document.getElementById('voice-snippets');
     const outputModeSelect = document.getElementById('output-mode-select');
+    const appAwareToggle = document.getElementById('app-aware-toggle');
+    const triggerModeSelect = document.getElementById('trigger-mode-select');
+    const silenceAutoStopToggle = document.getElementById('silence-auto-stop-toggle');
+    const silenceTimeoutSelect = document.getElementById('silence-timeout-select');
+    const historyRetentionSelect = document.getElementById('history-retention-select');
     const contextAwareSelect = document.getElementById('context-aware-select');
-    const fillerWordsToggle = document.getElementById('filler-words-toggle');
     const localLlmToggle = document.getElementById('local-llm-toggle');
     const hotkeySave = document.getElementById('hotkey-save');
     const statusDot = document.getElementById('status-dot');
@@ -25,15 +33,28 @@
     const statTime = document.getElementById('stat-time');
     const presetsContainer = document.getElementById('presets-container');
     const addPresetBtn = document.getElementById('add-preset-btn');
+    const historyList = document.getElementById('history-list');
+    const historyEmpty = document.getElementById('history-empty');
+    const historySearch = document.getElementById('history-search');
+    const historyRefresh = document.getElementById('history-refresh');
+    const historyClear = document.getElementById('history-clear');
+    const copyLastTranscript = document.getElementById('copy-last-transcript');
+    const onboardingModal = document.getElementById('onboarding-modal');
+    const onboardingFinish = document.getElementById('onboarding-finish');
 
     let pollInterval = null;
     let presetsData = [];
+    let historyData = [];
+    let historySearchTimer = null;
+    let apiKeyConfigured = false;
 
     function init() {
         loadHotkeyConfig();
         loadAnalytics();
+        loadHistory();
         bindEvents();
         startStatusPolling();
+        checkAppUpdates();
     }
 
     function showToast(message) {
@@ -45,6 +66,121 @@
         }, 2500);
     }
 
+    async function copyText(text) {
+        if (!text) return false;
+
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+                return true;
+            }
+        } catch (_) {
+            // Installed WebViews may deny the browser clipboard API. Fall back
+            // to the native Python bridge exposed by the desktop window.
+        }
+
+        try {
+            if (window.pywebview && window.pywebview.api && window.pywebview.api.copy_text) {
+                return Boolean(await window.pywebview.api.copy_text(text));
+            }
+        } catch (_) {}
+
+        return false;
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    function historyItemText(item) {
+        return (item && (item.final_text || item.raw_text) || '').trim();
+    }
+
+    function formatHistoryDate(value) {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return 'Unknown time';
+        return date.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+    }
+
+    function renderHistory() {
+        if (!historyList || !historyEmpty) return;
+        historyList.replaceChildren();
+        historyEmpty.style.display = historyData.length ? 'none' : 'block';
+
+        historyData.forEach(item => {
+            const card = document.createElement('article');
+            card.className = 'history-item';
+            card.dataset.historyId = item.id;
+
+            const header = document.createElement('div');
+            header.className = 'history-item-header';
+            const meta = document.createElement('span');
+            meta.className = 'history-meta';
+            const duration = item.duration_ms ? ` · ${(item.duration_ms / 1000).toFixed(1)}s` : '';
+            meta.textContent = `${formatHistoryDate(item.created_at)} · ${item.mode}${duration}`;
+            const status = document.createElement('span');
+            const inProgress = !['completed', 'failed', 'cancelled'].includes(item.status);
+            status.className = `history-status ${item.status === 'failed' ? 'failed' : ''} ${inProgress ? 'processing' : ''}`;
+            status.textContent = item.status;
+            header.append(meta, status);
+
+            const textBlock = document.createElement('p');
+            textBlock.className = 'history-text';
+            textBlock.textContent = historyItemText(item) || 'No transcript text was captured.';
+
+            card.append(header, textBlock);
+            if (item.error_message) {
+                const error = document.createElement('p');
+                error.className = 'history-error';
+                error.textContent = item.error_message;
+                card.append(error);
+            }
+
+            const actions = document.createElement('div');
+            actions.className = 'history-actions';
+            const copy = document.createElement('button');
+            copy.className = 'btn-secondary history-copy';
+            copy.type = 'button';
+            copy.textContent = 'Copy';
+            copy.disabled = !historyItemText(item);
+            if (item.status === 'failed' && item.audio_path) {
+                const retry = document.createElement('button');
+                retry.className = 'btn-secondary history-retry';
+                retry.type = 'button';
+                retry.textContent = 'Retry';
+                actions.append(retry);
+            }
+            const remove = document.createElement('button');
+            remove.className = 'btn-secondary history-delete';
+            remove.type = 'button';
+            remove.textContent = 'Delete';
+            actions.append(copy, remove);
+            card.append(actions);
+            historyList.append(card);
+        });
+    }
+
+    async function loadHistory() {
+        if (!historyList) return;
+        const query = historySearch ? historySearch.value.trim() : '';
+        try {
+            const response = await fetch(`/api/history?limit=100&q=${encodeURIComponent(query)}`);
+            const data = await response.json();
+            if (!response.ok || !data.ok) throw new Error(data.error || 'Could not load history');
+            historyData = data.items || [];
+            renderHistory();
+        } catch (error) {
+            showToast(error.message || 'Could not load history');
+        }
+    }
+
+    window.loadHistory = loadHistory;
+
     function renderPresets() {
         if (!presetsContainer) return;
         presetsContainer.innerHTML = '';
@@ -53,11 +189,11 @@
             card.className = 'preset-card';
             
             const k1 = preset.hotkeys && preset.hotkeys.length > 0 ? preset.hotkeys[0] : 'ctrl';
-            const k2 = preset.hotkeys && preset.hotkeys.length > 1 ? preset.hotkeys[1] : 'shift';
+            const k2 = preset.hotkeys && preset.hotkeys.length > 1 ? preset.hotkeys[1] : 'space';
 
             card.innerHTML = `
                 <div class="preset-header">
-                    <input type="text" class="preset-title-input" value="${preset.name}" data-idx="${index}">
+                    <input type="text" class="preset-title-input" value="${escapeHtml(preset.name)}" data-idx="${index}">
                     <button class="remove-preset-btn" data-idx="${index}">Remove</button>
                 </div>
                 <div class="hotkey-inputs">
@@ -75,7 +211,7 @@
                         <option value="space" ${k2==='space'?'selected':''}>Space</option>
                     </select>
                 </div>
-                <textarea class="input-field prompt-area preset-prompt-input" rows="3" data-idx="${index}">${preset.prompt}</textarea>
+                <textarea class="input-field prompt-area preset-prompt-input" rows="3" data-idx="${index}">${escapeHtml(preset.prompt)}</textarea>
             `;
             presetsContainer.appendChild(card);
         });
@@ -115,6 +251,8 @@
                 if (data.api_key !== undefined) {
                     apiKey.value = data.api_key;
                 }
+                apiKeyConfigured = Boolean(data.api_key_configured);
+                if (apiKeyConfigured && apiKey) apiKey.placeholder = 'Saved securely — enter a new key to replace it';
                 if (data.run_at_startup !== undefined && startupToggle) {
                     startupToggle.checked = data.run_at_startup;
                 }
@@ -127,14 +265,35 @@
                 if (data.custom_vocabulary !== undefined && customVocabulary) {
                     customVocabulary.value = data.custom_vocabulary;
                 }
+                if (data.writing_style !== undefined && writingStyleSelect) {
+                    writingStyleSelect.value = data.writing_style;
+                }
+                if (data.text_replacements !== undefined && textReplacements) {
+                    textReplacements.value = data.text_replacements;
+                }
+                if (data.voice_snippets !== undefined && voiceSnippets) {
+                    voiceSnippets.value = data.voice_snippets;
+                }
                 if (data.context_aware_dictation !== undefined && contextAwareSelect) {
                     contextAwareSelect.value = data.context_aware_dictation ? "true" : "false";
                 }
                 if (data.output_mode !== undefined && outputModeSelect) {
                     outputModeSelect.value = data.output_mode;
                 }
-                if (data.remove_filler_words !== undefined && fillerWordsToggle) {
-                    fillerWordsToggle.checked = data.remove_filler_words;
+                if (data.app_aware_formatting !== undefined && appAwareToggle) {
+                    appAwareToggle.checked = data.app_aware_formatting;
+                }
+                if (data.dictation_trigger_mode !== undefined && triggerModeSelect) {
+                    triggerModeSelect.value = data.dictation_trigger_mode;
+                }
+                if (data.silence_auto_stop !== undefined && silenceAutoStopToggle) {
+                    silenceAutoStopToggle.checked = data.silence_auto_stop;
+                }
+                if (data.silence_timeout_seconds !== undefined && silenceTimeoutSelect) {
+                    silenceTimeoutSelect.value = String(data.silence_timeout_seconds);
+                }
+                if (data.history_retention_days !== undefined && historyRetentionSelect) {
+                    historyRetentionSelect.value = String(data.history_retention_days);
                 }
                 if (data.main_dictation_ai !== undefined && mainDictationAiToggle) {
                     mainDictationAiToggle.checked = data.main_dictation_ai;
@@ -156,6 +315,9 @@
                     presetsData = data.ai_presets;
                     renderPresets();
                 }
+                if (onboardingModal && data.onboarding_complete === false) {
+                    onboardingModal.hidden = false;
+                }
             })
             .catch(() => {});
     }
@@ -174,35 +336,89 @@
         const useLocalLlm = localLlmToggle ? localLlmToggle.checked : false;
         const transcriptionEngine = transcriptionEngineSelect ? transcriptionEngineSelect.value : "local";
         const customVocab = customVocabulary ? customVocabulary.value : "";
+        const writingStyle = writingStyleSelect ? writingStyleSelect.value : "natural";
+        const replacements = textReplacements ? textReplacements.value : "";
+        const snippets = voiceSnippets ? voiceSnippets.value : "";
         const outputMode = outputModeSelect ? outputModeSelect.value : "type";
-        const removeFillerWords = fillerWordsToggle ? fillerWordsToggle.checked : false;
+        const appAwareFormatting = appAwareToggle ? appAwareToggle.checked : true;
+        const triggerMode = triggerModeSelect ? triggerModeSelect.value : "hold";
+        const silenceAutoStop = silenceAutoStopToggle ? silenceAutoStopToggle.checked : true;
+        const silenceTimeoutSeconds = silenceTimeoutSelect ? Number(silenceTimeoutSelect.value) : 2.0;
+        const historyRetentionDays = historyRetentionSelect ? Number(historyRetentionSelect.value) : 30;
         const mainDictationAi = mainDictationAiToggle ? mainDictationAiToggle.checked : false;
         const lang = languageSelect ? languageSelect.value : "auto";
         const cp = contextPrompt ? contextPrompt.value : "";
 
-        fetch('/api/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
+        const shortcutId = (keys) => keys.map(k => String(k).toLowerCase()).sort().join('+');
+        if (shortcutId([k1, k2]) === shortcutId([ck1, ck2])) {
+            showToast('Dictation and context shortcuts must be different');
+            return;
+        }
+        const reservedShortcuts = new Set([
+            shortcutId([k1, k2]),
+            shortcutId([ck1, ck2])
+        ]);
+        const usedPresetShortcuts = new Set();
+
+        for (const preset of presetsData) {
+            const keys = preset.hotkeys || [];
+            if (keys.length < 2 || keys[0] === keys[1]) {
+                showToast(`Choose two different keys for "${preset.name}"`);
+                return;
+            }
+            if (/Windows/i.test(navigator.userAgent) && keys.includes('cmd')) {
+                showToast(`Use Ctrl, Alt, Shift, or Space for "${preset.name}" on Windows`);
+                return;
+            }
+            const id = shortcutId(keys);
+            if (reservedShortcuts.has(id)) {
+                showToast(`"${preset.name}" conflicts with a dictation shortcut`);
+                return;
+            }
+            if (usedPresetShortcuts.has(id)) {
+                showToast(`Two AI presets use the same shortcut`);
+                return;
+            }
+            usedPresetShortcuts.add(id);
+        }
+
+        const configPayload = {
                 key1: k1, key2: k2, 
                 context_key1: ck1,
                 context_key2: ck2,
-                api_key: key, 
                 run_at_startup: runAtStartup,
                 use_local_llm: useLocalLlm,
                 transcription_engine: transcriptionEngine,
                 custom_vocabulary: customVocab,
+                writing_style: writingStyle,
+                text_replacements: replacements,
+                voice_snippets: snippets,
                 output_mode: outputMode,
-                remove_filler_words: removeFillerWords,
+                app_aware_formatting: appAwareFormatting,
+                dictation_trigger_mode: triggerMode,
+                silence_auto_stop: silenceAutoStop,
+                silence_timeout_seconds: silenceTimeoutSeconds,
+                history_retention_days: historyRetentionDays,
                 main_dictation_ai: mainDictationAi,
                 context_prompt: cp,
                 dictation_language: lang,
                 ai_presets: presetsData
-            })
+        };
+        if (key) configPayload.api_key = key;
+
+        fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(configPayload)
         })
         .then(r => r.json())
         .then(data => {
             if (data.ok) {
+                if (key) {
+                    apiKeyConfigured = true;
+                    apiKey.value = '';
+                    apiKey.placeholder = 'Saved securely — enter a new key to replace it';
+                }
                 showToast('Settings successfully applied!');
             }
         })
@@ -246,6 +462,220 @@
 
     function bindEvents() {
         hotkeySave.addEventListener('click', saveHotkeyConfig);
+
+        if (historyRefresh) historyRefresh.addEventListener('click', loadHistory);
+        if (clearApiKey) {
+            clearApiKey.addEventListener('click', async () => {
+                if (!apiKeyConfigured) {
+                    showToast('No API key is saved');
+                    return;
+                }
+                if (!window.confirm('Remove the saved Groq API key from this computer?')) return;
+                try {
+                    const response = await fetch('/api/config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ clear_api_key: true })
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.ok) throw new Error(data.error || 'Could not remove key');
+                    apiKeyConfigured = false;
+                    apiKey.value = '';
+                    apiKey.placeholder = 'gsk_...';
+                    showToast('Saved API key removed');
+                } catch (error) {
+                    showToast(error.message || 'Could not remove key');
+                }
+            });
+        }
+        let micStream = null;
+        let micAnimId = null;
+
+        function setWizardStep(stepNumber) {
+            document.querySelectorAll('.wizard-step').forEach(s => s.style.display = 'none');
+            const target = document.getElementById(`wizard-step-${stepNumber}`);
+            if (target) target.style.display = 'block';
+
+            [1, 2, 3].forEach(n => {
+                const dot = document.getElementById(`dot-${n}`);
+                if (dot) dot.classList.toggle('active', n === stepNumber);
+            });
+
+            if (stepNumber === 2) {
+                startMicTest();
+            } else {
+                stopMicTest();
+            }
+        }
+
+        async function startMicTest() {
+            const fill = document.getElementById('mic-meter-fill');
+            const icon = document.getElementById('mic-icon-wrapper');
+            const label = document.getElementById('mic-status-label');
+            if (!fill) return;
+
+            try {
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const source = audioCtx.createMediaStreamSource(micStream);
+                    const analyser = audioCtx.createAnalyser();
+                    analyser.fftSize = 256;
+                    source.connect(analyser);
+
+                    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                    function pollMic() {
+                        analyser.getByteFrequencyData(dataArray);
+                        let sum = 0;
+                        for (let i = 0; i < dataArray.length; i++) {
+                            sum += dataArray[i];
+                        }
+                        const avg = sum / dataArray.length;
+                        const percent = Math.min(100, Math.round((avg / 128) * 100));
+                        fill.style.width = `${percent}%`;
+
+                        if (percent > 10) {
+                            if (icon) icon.classList.add('active');
+                            if (label) label.textContent = 'Voice detected! Microphone is working.';
+                        } else {
+                            if (icon) icon.classList.remove('active');
+                        }
+                        micAnimId = requestAnimationFrame(pollMic);
+                    }
+                    pollMic();
+                } else {
+                    if (label) label.textContent = 'Microphone ready for Windows dictation.';
+                    fill.style.width = '35%';
+                }
+            } catch (e) {
+                if (label) label.textContent = 'Microphone ready for Windows dictation.';
+                fill.style.width = '35%';
+            }
+        }
+
+        function stopMicTest() {
+            if (micAnimId) {
+                cancelAnimationFrame(micAnimId);
+                micAnimId = null;
+            }
+            if (micStream) {
+                micStream.getTracks().forEach(t => t.stop());
+                micStream = null;
+            }
+            const fill = document.getElementById('mic-meter-fill');
+            if (fill) fill.style.width = '0%';
+            const icon = document.getElementById('mic-icon-wrapper');
+            if (icon) icon.classList.remove('active');
+        }
+
+        const next1 = document.getElementById('wizard-next-1');
+        if (next1) next1.addEventListener('click', () => setWizardStep(2));
+
+        const prev2 = document.getElementById('wizard-prev-2');
+        if (prev2) prev2.addEventListener('click', () => setWizardStep(1));
+
+        const next2 = document.getElementById('wizard-next-2');
+        if (next2) next2.addEventListener('click', () => setWizardStep(3));
+
+        const prev3 = document.getElementById('wizard-prev-3');
+        if (prev3) prev3.addEventListener('click', () => setWizardStep(2));
+
+        if (onboardingFinish) {
+            onboardingFinish.addEventListener('click', async () => {
+                stopMicTest();
+                try {
+                    const response = await fetch('/api/config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ onboarding_complete: true })
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.ok) throw new Error(data.error || 'Setup failed');
+                    onboardingModal.hidden = true;
+                    showToast('Welcome to VoiceFlow! Hold Alt + Shift to dictate anytime.');
+                } catch (error) {
+                    showToast(error.message || 'Could not finish setup');
+                }
+            });
+        }
+        if (historyClear) {
+            historyClear.addEventListener('click', async () => {
+                if (!window.confirm('Permanently delete all local transcript history and recovery audio?')) return;
+                try {
+                    const response = await fetch('/api/history', { method: 'DELETE' });
+                    const data = await response.json();
+                    if (!response.ok || !data.ok) throw new Error(data.error || 'Clear failed');
+                    historyData = [];
+                    renderHistory();
+                    loadAnalytics();
+                    showToast(`Deleted ${data.deleted} history item${data.deleted === 1 ? '' : 's'}`);
+                } catch (error) {
+                    showToast(error.message || 'Could not clear history');
+                }
+            });
+        }
+        if (historySearch) {
+            historySearch.addEventListener('input', () => {
+                clearTimeout(historySearchTimer);
+                historySearchTimer = setTimeout(loadHistory, 250);
+            });
+        }
+        if (copyLastTranscript) {
+            copyLastTranscript.addEventListener('click', async () => {
+                const latest = historyData.find(item => historyItemText(item));
+                if (latest && await copyText(historyItemText(latest))) {
+                    showToast('Latest transcript copied');
+                } else {
+                    showToast('There is no transcript to copy yet');
+                }
+            });
+        }
+        if (historyList) {
+            historyList.addEventListener('click', async event => {
+                const card = event.target.closest('.history-item');
+                if (!card) return;
+                const item = historyData.find(entry => entry.id === card.dataset.historyId);
+                if (!item) return;
+
+                if (event.target.closest('.history-copy')) {
+                    if (await copyText(historyItemText(item))) showToast('Transcript copied');
+                    else showToast('Failed to copy transcript');
+                }
+
+                if (event.target.closest('.history-retry')) {
+                    const retryButton = event.target.closest('.history-retry');
+                    retryButton.disabled = true;
+                    retryButton.textContent = 'Retrying…';
+                    try {
+                        const response = await fetch(`/api/history/${encodeURIComponent(item.id)}/retry`, { method: 'POST' });
+                        const data = await response.json();
+                        if (!response.ok || !data.ok) throw new Error(data.error || data.item?.error_message || 'Retry failed');
+                        await loadHistory();
+                        loadAnalytics();
+                        showToast('Transcript recovered');
+                    } catch (error) {
+                        await loadHistory();
+                        showToast(error.message || 'Could not recover transcript');
+                    }
+                }
+
+                if (event.target.closest('.history-delete')) {
+                    if (!window.confirm('Delete this transcript from local history?')) return;
+                    try {
+                        const response = await fetch(`/api/history/${encodeURIComponent(item.id)}`, { method: 'DELETE' });
+                        const data = await response.json();
+                        if (!response.ok || !data.ok) throw new Error(data.error || 'Delete failed');
+                        historyData = historyData.filter(entry => entry.id !== item.id);
+                        renderHistory();
+                        loadAnalytics();
+                        showToast('Transcript deleted');
+                    } catch (error) {
+                        showToast(error.message || 'Could not delete transcript');
+                    }
+                }
+            });
+        }
         
         if (addPresetBtn) {
             addPresetBtn.addEventListener('click', (e) => {
@@ -296,13 +726,13 @@
         const transcriptResult = document.getElementById('transcript-result');
         const uploadStatusText = document.getElementById('upload-status-text');
 
-        window.copyTranscript = function() {
+        window.copyTranscript = async function() {
             if (transcriptResult && transcriptResult.value) {
-                navigator.clipboard.writeText(transcriptResult.value).then(() => {
+                if (await copyText(transcriptResult.value)) {
                     showToast('Transcript copied to clipboard!');
-                }).catch(() => {
+                } else {
                     showToast('Failed to copy');
-                });
+                }
             }
         };
 
@@ -360,6 +790,8 @@
                         uploadStatus.style.display = 'none';
                         transcriptContainer.style.display = 'block';
                         transcriptResult.value = data.text;
+                        loadHistory();
+                        loadAnalytics();
                     } else {
                         if(uploadStatusText) uploadStatusText.innerText = 'Error: ' + data.error;
                     }
@@ -369,6 +801,24 @@
                 });
             }
         }
+    }
+
+    function checkAppUpdates() {
+        fetch('/api/check_update')
+            .then(r => r.json())
+            .then(data => {
+                if (data && data.ok && data.update_available) {
+                    const banner = document.getElementById('update-banner');
+                    const versionSpan = document.getElementById('update-version');
+                    const link = document.getElementById('update-link');
+                    if (banner && versionSpan && link) {
+                        versionSpan.textContent = data.latest_version;
+                        link.href = data.release_url || 'https://github.com/HafizMuhammadShah42895/VoiceFlow/releases';
+                        banner.style.display = 'block';
+                    }
+                }
+            })
+            .catch(() => {});
     }
 
     window.switchToMini = function() {

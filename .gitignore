@@ -16,3 +16,6 @@ env/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local scratch scripts
+scratch/

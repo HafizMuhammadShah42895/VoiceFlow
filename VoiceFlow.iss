@@ -1,6 +1,6 @@
 [Setup]
 AppName=VoiceFlow
-AppVersion=1.0
+AppVersion=3.1.0
 AppPublisher=Waliq
 DefaultDirName={autopf}\VoiceFlow
 DefaultGroupName=VoiceFlow
@@ -8,8 +8,8 @@ OutputDir=dist
 OutputBaseFilename=VoiceFlow_Setup
 Compression=lzma2
 SolidCompression=yes
-ArchitecturesAllowed=x64
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 SetupIconFile=app.ico
 
 [Tasks]

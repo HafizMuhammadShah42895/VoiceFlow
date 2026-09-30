@@ -8,22 +8,26 @@ if sys.stderr is None:
     sys.stderr = open(os.devnull, "w")
 
 from flask import Flask, render_template, jsonify, request
-from dictation_agent import DictationAgent
+from dictation_agent import DictationAgent, safe_clipboard_set
+from voiceflow_core import SingleInstance, SystemTray, APP_VERSION
 
 if getattr(sys, 'frozen', False):
     base_dir = sys._MEIPASS
 else:
     base_dir = os.path.dirname(os.path.abspath(__file__))
 
-app = Flask(__name__, 
-            template_folder=os.path.join(base_dir, 'templates'),
-            static_folder=os.path.join(base_dir, 'static'))
+app = Flask(
+    __name__,
+    template_folder=os.path.join(base_dir, 'templates'),
+    static_folder=os.path.join(base_dir, 'static')
+)
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1 GiB local file limit
 
 agent = DictationAgent()
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', app_version=APP_VERSION)
 
 @app.route('/mini')
 def mini():
@@ -45,7 +49,9 @@ def set_config():
             if 'ai_presets' in data:
                 agent.ai_presets = data['ai_presets']
             if 'api_key' in data:
-                agent.api_key = data['api_key']
+                agent.set_api_key(data['api_key'])
+            if data.get('clear_api_key'):
+                agent.clear_api_key()
             if 'context_prompt' in data:
                 agent.context_prompt = data['context_prompt']
             if 'main_dictation_ai' in data:
@@ -56,21 +62,71 @@ def set_config():
                 agent.dictation_language = data['dictation_language']
             if 'context_aware_dictation' in data:
                 agent.context_aware_dictation = data['context_aware_dictation']
-            if 'remove_filler_words' in data:
-                agent.remove_filler_words = data['remove_filler_words']
+            if 'app_aware_formatting' in data:
+                agent.app_aware_formatting = bool(data['app_aware_formatting'])
             if 'output_mode' in data:
                 agent.output_mode = data['output_mode']
+            if data.get('dictation_trigger_mode') in {'hold', 'toggle'}:
+                agent.dictation_trigger_mode = data['dictation_trigger_mode']
+            if 'silence_auto_stop' in data:
+                agent.silence_auto_stop = bool(data['silence_auto_stop'])
+            if 'silence_timeout_seconds' in data:
+                agent.silence_timeout_seconds = max(3.0, float(data['silence_timeout_seconds']))
+            if 'silence_threshold' in data:
+                agent.silence_threshold = max(0.001, float(data['silence_threshold']))
             if 'use_local_llm' in data:
                 agent.use_local_llm = data['use_local_llm']
             if 'transcription_engine' in data:
                 agent.transcription_engine = data['transcription_engine']
             if 'custom_vocabulary' in data:
                 agent.custom_vocabulary = data['custom_vocabulary']
-                
+            if data.get('writing_style') in {'natural', 'concise', 'professional', 'casual'}:
+                agent.writing_style = data['writing_style']
+            if 'text_replacements' in data:
+                agent.text_replacements = data['text_replacements']
+            if 'voice_snippets' in data:
+                agent.voice_snippets = data['voice_snippets']
+            if 'history_retention_days' in data:
+                agent.history_retention_days = max(0, int(data['history_retention_days']))
+                agent.history.purge_older_than(agent.history_retention_days)
+            if 'onboarding_complete' in data:
+                agent.onboarding_complete = bool(data['onboarding_complete'])
+
             agent.save_config()
             return jsonify({'ok': True, 'hotkey': list(agent.hotkey)})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 400
+
+@app.route('/api/check_update')
+def check_update():
+    try:
+        import urllib.request
+        import json
+        req = urllib.request.Request(
+            "https://api.github.com/repos/HafizMuhammadShah42895/VoiceFlow/releases/latest",
+            headers={"User-Agent": "VoiceFlow-Desktop"}
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            latest_tag = data.get("tag_name", "").lstrip("v")
+            current = APP_VERSION.lstrip("v")
+            has_update = False
+            if latest_tag:
+                try:
+                    latest_parts = [int(p) for p in latest_tag.split('.') if p.isdigit()]
+                    current_parts = [int(p) for p in current.split('.') if p.isdigit()]
+                    has_update = latest_parts > current_parts
+                except Exception:
+                    has_update = latest_tag != current
+            return jsonify({
+                "ok": True,
+                "update_available": has_update,
+                "latest_version": latest_tag,
+                "current_version": current,
+                "release_url": data.get("html_url", "https://github.com/HafizMuhammadShah42895/VoiceFlow/releases")
+            })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "update_available": False, "current_version": APP_VERSION})
 
 @app.route('/api/transcribe_file', methods=['POST'])
 def transcribe_file_api():
@@ -81,18 +137,20 @@ def transcribe_file_api():
         return jsonify({'ok': False, 'error': 'No selected file'}), 400
     if file:
         import tempfile
-        import os
-        temp_dir = tempfile.gettempdir()
-        filepath = os.path.join(temp_dir, file.filename)
-        file.save(filepath)
-        
-        text = agent.transcribe_file(filepath)
-        
+        extension = os.path.splitext(file.filename)[1].lower()
+        if not extension or len(extension) > 10 or not extension[1:].isalnum():
+            extension = '.audio'
+        descriptor, filepath = tempfile.mkstemp(prefix='voiceflow-upload-', suffix=extension)
+        os.close(descriptor)
         try:
-            os.remove(filepath)
-        except:
-            pass
-            
+            file.save(filepath)
+            text = agent.transcribe_file(filepath)
+        finally:
+            try:
+                os.remove(filepath)
+            except OSError:
+                pass
+
         if text:
             return jsonify({'ok': True, 'text': text})
         else:
@@ -100,35 +158,100 @@ def transcribe_file_api():
 
 @app.route('/api/analytics', methods=['GET'])
 def get_analytics():
-    import os, json
-    analytics_file = os.path.expanduser('~/.voiceflow_analytics.json')
     try:
+        data = agent.history.analytics()
+        analytics_file = os.path.expanduser('~/.voiceflow_analytics.json')
         if os.path.exists(analytics_file):
-            with open(analytics_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-        else:
-            data = {'total_words': 0, 'sessions': 0}
+            import json
+            with open(analytics_file, 'r', encoding='utf-8') as file_handle:
+                legacy = json.load(file_handle)
+            data['total_words'] += max(0, int(legacy.get('total_words', 0)))
+            data['sessions'] += max(0, int(legacy.get('sessions', 0)))
         return jsonify(data)
-    except:
+    except Exception:
         return jsonify({'total_words': 0, 'sessions': 0})
+
+@app.route('/api/history', methods=['GET', 'DELETE'])
+def get_history():
+    try:
+        if request.method == 'DELETE':
+            return jsonify({'ok': True, 'deleted': agent.clear_history()})
+        limit = request.args.get('limit', 100, type=int)
+        offset = request.args.get('offset', 0, type=int)
+        query = request.args.get('q', '', type=str)
+        return jsonify({'ok': True, 'items': agent.get_history(limit, offset, query)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@app.route('/api/history/<job_id>', methods=['GET', 'DELETE'])
+def history_item(job_id):
+    if request.method == 'DELETE':
+        try:
+            if agent.delete_history_item(job_id):
+                return jsonify({'ok': True})
+            return jsonify({'ok': False, 'error': 'History item not found'}), 404
+        except Exception as e:
+            return jsonify({'ok': False, 'error': str(e)}), 500
+
+    item = agent.get_history_item(job_id)
+    if not item:
+        return jsonify({'ok': False, 'error': 'History item not found'}), 404
+    return jsonify({'ok': True, 'item': item})
+
+@app.route('/api/history/<job_id>/copy', methods=['POST'])
+def copy_history_item(job_id):
+    if agent.copy_history_item(job_id):
+        return jsonify({'ok': True})
+    return jsonify({'ok': False, 'error': 'No transcript text was available to copy'}), 404
+
+@app.route('/api/history/<job_id>/paste', methods=['POST'])
+def paste_history_item(job_id):
+    if agent.paste_history_item(job_id):
+        return jsonify({'ok': True})
+    return jsonify({'ok': False, 'error': 'VoiceFlow could not paste this transcript'}), 409
+
+@app.route('/api/history/<job_id>/retry', methods=['POST'])
+def retry_history_item(job_id):
+    item = agent.retry_history_item(job_id)
+    if item:
+        return jsonify({'ok': item.get('status') == 'completed', 'item': item})
+    return jsonify({'ok': False, 'error': 'No recoverable audio is available for this transcript'}), 409
+
+@app.route('/api/history/latest/copy', methods=['POST'])
+def copy_latest_history_item():
+    if agent.copy_history_item():
+        return jsonify({'ok': True})
+    return jsonify({'ok': False, 'error': 'There is no transcript to copy yet'}), 404
+
+@app.route('/api/history/latest/paste', methods=['POST'])
+def paste_latest_history_item():
+    if agent.paste_history_item():
+        return jsonify({'ok': True})
+    return jsonify({'ok': False, 'error': 'There is no transcript to paste yet'}), 404
 
 import webview
 import threading
-import sys
-
 import multiprocessing
 
 if __name__ == '__main__':
     multiprocessing.freeze_support()
+
+    # Phase 1: Single Instance Mutex Protection
+    single_instance = SingleInstance("VoiceFlow_SingleInstance_Mutex")
+    if single_instance.is_running:
+        print("[VoiceFlow] Another instance is already running. Bringing it to focus.")
+        single_instance.focus_existing_window("VoiceFlow Dashboard")
+        sys.exit(0)
+
     agent.start()
-    
+
     def run_flask():
         app.run(debug=False, host='127.0.0.1', port=5000, use_reloader=False)
 
     # Start Flask server in a background thread
     t = threading.Thread(target=run_flask, daemon=True)
     t.start()
-    
+
     class Api:
         def __init__(self):
             self._main_window = None
@@ -138,7 +261,17 @@ if __name__ == '__main__':
             if self._main_window:
                 self._main_window.hide()
             if not self._mini_window:
-                self._mini_window = webview.create_window('VoiceFlow Mini', 'http://127.0.0.1:5000/mini', width=220, height=120, frameless=True, on_top=True, easy_drag=True, js_api=self)
+                self._mini_window = webview.create_window(
+                    'VoiceFlow Mini',
+                    'http://127.0.0.1:5000/mini',
+                    width=220,
+                    height=120,
+                    frameless=True,
+                    on_top=True,
+                    easy_drag=True,
+                    text_select=True,
+                    js_api=self
+                )
             else:
                 self._mini_window.show()
 
@@ -148,46 +281,112 @@ if __name__ == '__main__':
             if self._main_window:
                 self._main_window.show()
 
+        def copy_text(self, text):
+            """Reliable clipboard fallback for the embedded browser UI."""
+            if not isinstance(text, str):
+                return False
+            return safe_clipboard_set(text)
+
+        def copy_last_transcript(self):
+            return agent.copy_history_item()
+
+        def paste_last_transcript(self):
+            return agent.paste_history_item()
+
+        def quit_app(self):
+            quit_voiceflow()
+
     api = Api()
 
-    main_window = webview.create_window('VoiceFlow Dashboard', 'http://127.0.0.1:5000', width=600, height=750, min_size=(600, 750), js_api=api)
+    main_window = webview.create_window(
+        'VoiceFlow Dashboard',
+        'http://127.0.0.1:5000',
+        width=600,
+        height=750,
+        min_size=(600, 750),
+        text_select=True,
+        js_api=api
+    )
     api._main_window = main_window
-    
-    def on_closed():
-        agent.stop()
+
+    is_quitting = False
+
+    def quit_voiceflow():
+        global is_quitting
+        is_quitting = True
+        try:
+            tray.stop()
+        except Exception:
+            pass
+        try:
+            agent.stop()
+        except Exception:
+            pass
+        try:
+            single_instance.release()
+        except Exception:
+            pass
+        try:
+            main_window.destroy()
+        except Exception:
+            pass
         os._exit(0)
-        
+
+    def on_closing():
+        if not is_quitting:
+            # Minimize to tray instead of quitting!
+            main_window.hide()
+            return False
+        return True
+
+    def on_closed():
+        quit_voiceflow()
+
+    main_window.events.closing += on_closing
     main_window.events.closed += on_closed
-    
+
+    # Phase 3: System Tray
+    def open_dashboard():
+        if main_window:
+            main_window.show()
+            main_window.restore()
+
+    tray = SystemTray(
+        on_open_dashboard=open_dashboard,
+        on_toggle_pause=agent.toggle_pause,
+        on_copy_last=agent.copy_history_item,
+        on_paste_last=agent.paste_history_item,
+        on_check_updates=open_dashboard,
+        on_quit=quit_voiceflow,
+        is_paused_fn=lambda: agent.is_paused,
+    )
+    tray.start()
+
     if sys.platform.startswith('linux'):
-        # Check for Wayland
         if os.environ.get('XDG_SESSION_TYPE', '').lower() == 'wayland':
             print("\n[WARNING] Wayland display server detected!")
             print("Global hotkeys (like Alt+Shift) may not work on Wayland due to security restrictions.")
             print("If dictation hotkeys fail, please switch to an 'Xorg / X11' session at your login screen.\n")
-            
-        # Automatically create Linux App shortcut if it doesn't exist
+
         try:
             import shutil
             apps_dir = os.path.expanduser('~/.local/share/applications')
             icons_dir = os.path.expanduser('~/.local/share/icons')
             os.makedirs(apps_dir, exist_ok=True)
             os.makedirs(icons_dir, exist_ok=True)
-            
+
             desktop_file = os.path.join(apps_dir, 'VoiceFlow.desktop')
             icon_dest = os.path.join(icons_dir, 'voiceflow_icon.png')
-            
-            # Force copy new png icon to clear old caches
+
             icon_src = os.path.join(os.path.dirname(__file__), 'static', 'img', 'logo_final.png')
             if os.path.exists(icon_src):
                 shutil.copy2(icon_src, icon_dest)
-                
-            # Create/Update desktop file
+
             if getattr(sys, 'frozen', False):
                 exe_path = os.path.abspath(sys.executable)
             else:
                 exe_path = f"{sys.executable} {os.path.abspath(sys.argv[0])}"
-                
+
             content = f"""[Desktop Entry]
 Type=Application
 Name=VoiceFlow
@@ -205,7 +404,6 @@ Categories=Utility;
     # Start the webview application
     icon_path = os.path.join(os.path.dirname(__file__), 'static', 'img', 'logo_icon.ico')
     webview.start(icon=icon_path)
-    
-    # Fallback stop
-    agent.stop()
-    os._exit(0)
+
+    # Fallback cleanup
+    quit_voiceflow()
