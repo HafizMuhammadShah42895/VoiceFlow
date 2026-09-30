@@ -754,3 +754,10 @@ select.input-field {
 .history-suggestions { display: flex; flex-direction: column; gap: 8px; padding: 12px; margin-bottom: 12px; border: 1px dashed var(--border); border-radius: 10px; background: rgba(139, 92, 246, 0.05); }
 .history-suggestion { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 13px; color: var(--text-main); }
 .history-suggestions-dismiss { align-self: flex-end; }
+
+/* Linux setup notes */
+.platform-issues { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
+.platform-issue { border-left: 3px solid var(--primary); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.platform-issue.warning { border-left-color: var(--warning); }
+.platform-issue h3 { font-size: 14px; }
+.platform-commands { width: 100%; margin: 0; padding: 10px 12px; border-radius: 8px; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border); color: var(--text-main); font-size: 12px; white-space: pre-wrap; word-break: break-all; user-select: text; }

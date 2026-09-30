@@ -159,6 +159,16 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(added["added"])
         self.assertEqual(added["text_replacements"], "hello => Hello!")
 
+    def test_show_window_endpoint(self):
+        shown = []
+        self.module.app.config["SHOW_WINDOW"] = lambda: shown.append(True)
+        try:
+            self.assertEqual(self.post("/api/show").status_code, 200)
+            self.assertEqual(shown, [True])
+            self.assertEqual(self.client.post("/api/show", base_url=self.base_url).status_code, 403)
+        finally:
+            self.module.app.config.pop("SHOW_WINDOW", None)
+
     def test_analytics_endpoint(self):
         self.assertEqual(self.get("/api/analytics").get_json(), {"total_words": 2, "sessions": 1})
 

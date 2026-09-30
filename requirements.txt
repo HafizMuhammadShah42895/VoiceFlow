@@ -11,6 +11,8 @@ pywebview>=6.2,<7
 keyring>=25,<26
 pystray>=0.19.5,<0.20
 Pillow>=11,<12
+# Linux: evdev reads shortcuts and types on Wayland (see README "Linux setup").
+evdev>=1.7,<2; sys_platform == "linux"
 PyQt5>=5.15,<6; sys_platform == "linux"
 PyQtWebEngine>=5.15,<6; sys_platform == "linux"
 qtpy>=2,<3; sys_platform == "linux"

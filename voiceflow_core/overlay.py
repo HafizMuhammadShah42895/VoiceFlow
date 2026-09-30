@@ -2,6 +2,7 @@
 
 import os
 import sys
+import threading
 import time
 
 NOTIFICATION_SECONDS = 2.0
@@ -115,11 +116,13 @@ class FloatingOverlay:
         self._visible = False
         self._work_area = None
         self._position = None
+        self._ui_thread = None
 
     def start(self) -> None:
         import tkinter as tk
 
         _enable_dpi_awareness()
+        self._ui_thread = threading.current_thread()
         self.root = tk.Tk()
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
@@ -157,6 +160,35 @@ class FloatingOverlay:
         self.root.withdraw()
         self.update_loop()
         self.root.mainloop()
+
+    def call_in_ui(self, func, timeout: float = 1.0):
+        """Run ``func(root)`` on the Tk thread and return its result.
+
+        Tk is not thread-safe, so other threads (e.g. the clipboard fallback)
+        must go through here.
+        """
+        root = self.root
+        if root is None:
+            raise RuntimeError("Overlay is not running")
+        if threading.current_thread() is self._ui_thread:
+            return func(root)
+        done = threading.Event()
+        result: dict = {}
+
+        def task():
+            try:
+                result["value"] = func(root)
+            except Exception as e:
+                result["error"] = e
+            finally:
+                done.set()
+
+        root.after(0, task)
+        if not done.wait(timeout):
+            raise TimeoutError("Overlay did not respond")
+        if "error" in result:
+            raise result["error"]
+        return result.get("value")
 
     def update_loop(self) -> None:
         self.frame_count += 1

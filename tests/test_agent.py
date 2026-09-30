@@ -112,6 +112,14 @@ class DictationAgentTests(unittest.TestCase):
         self.assertEqual(agent.writing_style, "natural")
         self.assertNotIn("api_key", json.loads(config_path.read_text(encoding="utf-8")))
 
+    def test_api_key_kept_in_settings_when_keyring_rejects_writes(self):
+        # e.g. Linux without GNOME Keyring/KWallet: the key must survive a restart.
+        self.keyring.set_password = mock.Mock(side_effect=RuntimeError("no secret service"))
+        self.agent.update_config({"api_key": "gsk_fallback"})
+        saved = json.loads(Path(os.environ["VOICEFLOW_CONFIG_FILE"]).read_text(encoding="utf-8"))
+        self.assertEqual(saved["api_key"], "gsk_fallback")
+        self.assertEqual(dictation_agent.DictationAgent().api_key, "gsk_fallback")
+
     def test_analytics_count_each_dictation_once(self):
         self.agent._update_analytics("one two three")
         self.agent._update_analytics("four")

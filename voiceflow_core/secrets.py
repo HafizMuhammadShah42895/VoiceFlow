@@ -20,7 +20,21 @@ class CredentialStore:
 
     @property
     def available(self) -> bool:
-        return self.backend is not None
+        """True only when a real credential store is usable.
+
+        On Linux without GNOME Keyring/KWallet (or when the backend is not
+        bundled), keyring falls back to a backend that rejects every write.
+        """
+        if self.backend is None:
+            return False
+        get_keyring = getattr(self.backend, "get_keyring", None)
+        if get_keyring is None:
+            return True
+        try:
+            ring = get_keyring()
+            return getattr(ring, "priority", 1) > 0 and type(ring).__module__ != "keyring.backends.fail"
+        except Exception:
+            return False
 
     def get_api_key(self) -> str:
         if not self.backend:

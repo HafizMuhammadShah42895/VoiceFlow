@@ -44,6 +44,37 @@ at each launch and embedded in the dashboard page, and requests with any other
 `Host` header are refused, so web pages open in your browser cannot call the
 local API.
 
+## Linux setup
+
+VoiceFlow works on X11 out of the box. On **Wayland** (the default on Ubuntu,
+Fedora and most new distros), apps are not allowed to see keys typed into other
+apps or to send keys to them, so VoiceFlow uses the Linux input devices instead.
+Run this once, then log out and back in:
+
+```bash
+sudo usermod -aG input $USER
+echo 'KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"' | sudo tee /etc/udev/rules.d/99-voiceflow-uinput.rules
+echo uinput | sudo tee /etc/modules-load.d/voiceflow-uinput.conf
+sudo modprobe uinput && sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+The dashboard shows these commands (with a Copy button) whenever the setup is
+missing. Being in the `input` group lets your user's programs read keyboard
+input, which is what makes global shortcuts possible on Wayland.
+
+Also recommended: `sudo apt install wl-clipboard` (Wayland) or `xclip` (X11).
+
+What works where:
+
+| Feature | X11 | Wayland: Sway / Hyprland | Wayland: GNOME / KDE |
+|---|---|---|---|
+| Shortcuts, dictation, pasting | ✅ | ✅ (after setup) | ✅ (after setup) |
+| Pasting into terminals (Ctrl+Shift+V) | ✅ | ✅ | ❌ terminal not detectable; paste manually |
+| Writing profiles, app-aware formatting, voice edit | ✅ | ✅ | ❌ the focused app cannot be detected |
+
+On desktops without a tray icon (e.g. GNOME), closing the window minimizes it;
+launching VoiceFlow again brings the running window back.
+
 ## Test
 
 ```powershell

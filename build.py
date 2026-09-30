@@ -66,6 +66,13 @@ cmd = [
 
 if sys.platform.startswith('linux'):
     cmd.extend([
+        # Wayland shortcuts/typing, X11 window detection, and GNOME Keyring/KWallet.
+        '--hidden-import=evdev',
+        '--hidden-import=Xlib',
+        '--hidden-import=keyring.backends.SecretService',
+        '--hidden-import=keyring.backends.kwallet',
+        '--hidden-import=secretstorage',
+        '--hidden-import=jeepney',
         '--hidden-import=PyQt5',
         '--hidden-import=PyQtWebEngine',
         '--hidden-import=qtpy',

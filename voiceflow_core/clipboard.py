@@ -3,14 +3,25 @@
 import sys
 import threading
 import time
-from typing import Optional
+from typing import Any, Callable, Optional
 
+from voiceflow_core import linux_input
 from voiceflow_core.safe_logging import log
 
 # How long to wait after Ctrl+V before restoring the user's clipboard. Apps read
 # the clipboard when they process the queued keystroke, so restoring too early
 # can paste the old contents instead of the transcript.
 CLIPBOARD_RESTORE_DELAY = 0.6
+
+# Runs a function against a long-lived Tk root (the overlay) in its own thread.
+# Used when no clipboard tool is available: on X11 the clipboard belongs to the
+# window that set it, so a temporary Tk window would lose it as soon as it closed.
+_clipboard_host: Optional[Callable[[Callable[[Any], Any]], Any]] = None
+
+
+def set_clipboard_host(host: Optional[Callable[[Callable[[Any], Any]], Any]]) -> None:
+    global _clipboard_host
+    _clipboard_host = host
 
 
 def safe_clipboard_get() -> str:
@@ -19,6 +30,11 @@ def safe_clipboard_get() -> str:
         import pyperclip
         return pyperclip.paste()
     except Exception:
+        if _clipboard_host is not None:
+            try:
+                return _clipboard_host(lambda root: root.clipboard_get()) or ""
+            except Exception:
+                return ""
         try:
             import tkinter as tk
             root = tk.Tk()
@@ -39,6 +55,17 @@ def safe_clipboard_set(text: str) -> bool:
         pyperclip.copy(text)
         return True
     except Exception:
+        if _clipboard_host is not None:
+            try:
+                def _set(root):
+                    root.clipboard_clear()
+                    root.clipboard_append(text)
+                    root.update_idletasks()
+
+                _clipboard_host(_set)
+                return True
+            except Exception:
+                return False
         try:
             import tkinter as tk
             root = tk.Tk()
@@ -80,12 +107,20 @@ def force_release_modifiers() -> None:
         pass
 
 
-def send_shortcut(key: str) -> None:
-    """Send Ctrl+<key> (Cmd+<key> on macOS) to the focused application."""
+def send_shortcut(key: str, shift: bool = False) -> None:
+    """Send Ctrl(+Shift)+<key> (Cmd on macOS) to the focused application.
+
+    On Wayland X11 fake key presses never reach native apps, so the kernel
+    virtual keyboard is used when VoiceFlow has permission for it.
+    """
+    if linux_input.should_use_virtual_keyboard():
+        linux_input.send_shortcut(key, shift=shift)
+        return
+
     import pyautogui
 
     modifier = "command" if sys.platform == "darwin" else "ctrl"
-    pyautogui.hotkey(modifier, key)
+    pyautogui.hotkey(*([modifier] + (["shift"] if shift else []) + [key]))
 
 
 def capture_selection(timeout: float = 0.5) -> str:
@@ -138,11 +173,12 @@ def _restore_clipboard(previous_text: str, pasted_text: str, pasted_sequence: Op
     safe_clipboard_set(previous_text)
 
 
-def paste_text(text: str, restore_clipboard: bool = True, wait: bool = False) -> bool:
+def paste_text(text: str, restore_clipboard: bool = True, wait: bool = False, terminal: bool = False) -> bool:
     """Paste text into the focused app through the clipboard.
 
     When ``restore_clipboard`` is set, the previous clipboard text is put back
     after a short delay. ``wait`` blocks until that restore has happened.
+    ``terminal`` pastes with Ctrl+Shift+V on Linux, where terminals ignore Ctrl+V.
     """
     previous_text = safe_clipboard_get() if restore_clipboard else ""
     if not safe_clipboard_set(text):
@@ -151,7 +187,7 @@ def paste_text(text: str, restore_clipboard: bool = True, wait: bool = False) ->
 
     try:
         force_release_modifiers()
-        send_shortcut("v")
+        send_shortcut("v", shift=terminal and sys.platform.startswith("linux"))
     except Exception as e:
         log(f"Paste error: {e}")
         return False
@@ -171,12 +207,12 @@ def paste_text(text: str, restore_clipboard: bool = True, wait: bool = False) ->
     return True
 
 
-def type_or_paste(text: str, mode: str = "type") -> bool:
+def type_or_paste(text: str, mode: str = "type", terminal: bool = False) -> bool:
     """Type or copy the final transcript into the focused application."""
     try:
         if mode == "type":
             # The trailing space keeps back-to-back dictations separated.
-            return paste_text(text + " ")
+            return paste_text(text + " ", terminal=terminal)
         if not safe_clipboard_set(text):
             raise RuntimeError("Clipboard is unavailable")
         return True

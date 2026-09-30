@@ -43,6 +43,7 @@
     const profilesContainer = document.getElementById('profiles-container');
     const profilesEmpty = document.getElementById('profiles-empty');
     const addProfileBtn = document.getElementById('add-profile-btn');
+    const platformIssues = document.getElementById('platform-issues');
 
     const PROFILE_STYLE_OPTIONS = [
         ['default', 'Use my main writing style'],
@@ -370,6 +371,28 @@
         });
     }
 
+    function renderPlatformIssues(issues) {
+        if (!platformIssues) return;
+        platformIssues.replaceChildren();
+        (issues || []).forEach(issue => {
+            const card = el('section', { className: `card platform-issue ${issue.level === 'warning' ? 'warning' : 'info'}` });
+            card.append(
+                el('h3', { textContent: issue.title }),
+                el('p', { className: 'setting-help', textContent: issue.detail })
+            );
+            if (issue.commands && issue.commands.length) {
+                const commands = issue.commands.join('\n');
+                card.append(el('pre', { className: 'platform-commands', textContent: commands }));
+                const copy = el('button', { className: 'btn-secondary', type: 'button', textContent: 'Copy commands' });
+                copy.addEventListener('click', async () => {
+                    showToast(await copyText(commands) ? 'Commands copied — paste them into a terminal' : 'Could not copy');
+                });
+                card.append(copy);
+            }
+            platformIssues.append(card);
+        });
+    }
+
     function loadOpenApps() {
         apiFetch('/api/apps')
             .then(r => r.json())
@@ -492,6 +515,7 @@
                     presetsData = data.ai_presets;
                     renderPresets();
                 }
+                renderPlatformIssues(data.platform_issues);
                 if (Array.isArray(data.writing_profiles)) {
                     profilesData = data.writing_profiles;
                     renderProfiles();

@@ -3,12 +3,19 @@
 import json
 import math
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
 import threading
 import time
 from typing import Any, Optional
-from pynput import keyboard
+
+try:
+    from pynput import keyboard
+except Exception as _pynput_error:  # e.g. Wayland with no X display
+    keyboard = None
+    _PYNPUT_IMPORT_ERROR = _pynput_error
 
 from voiceflow_core import (
     AudioCapture,
@@ -18,6 +25,7 @@ from voiceflow_core import (
     DEFAULT_PROMPT,
     DictationHistory,
     DictationStatus,
+    EvdevKeyboardListener,
     FloatingOverlay,
     LLMService,
     MODIFIER_MAP,
@@ -25,6 +33,7 @@ from voiceflow_core import (
     WRITING_STYLE_PROMPTS,
     apply_replacements,
     capture_selection,
+    detect_platform_issues,
     expand_snippet,
     focus_window,
     force_release_modifiers,
@@ -41,6 +50,9 @@ from voiceflow_core import (
     safe_clipboard_get,
     safe_clipboard_set,
     send_shortcut,
+    set_active_listener,
+    set_clipboard_host,
+    should_use_evdev_listener,
     suggest_replacements,
     type_or_paste,
 )
@@ -62,13 +74,26 @@ CHOICE_SETTINGS = {
 
 
 def _play_sound(name: str) -> None:
+    base_dir = sys._MEIPASS if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
+    sound_path = os.path.join(base_dir, "static", "sounds", f"{name}.wav")
+    if not os.path.exists(sound_path):
+        return
     try:
-        import winsound
+        if sys.platform == "win32":
+            import winsound
 
-        base_dir = sys._MEIPASS if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
-        sound_path = os.path.join(base_dir, "static", "sounds", f"{name}.wav")
-        if os.path.exists(sound_path):
             winsound.PlaySound(sound_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
+            return
+        players = [["afplay"]] if sys.platform == "darwin" else [["pw-play"], ["paplay"], ["aplay", "-q"]]
+        for player in players:
+            if shutil.which(player[0]):
+                subprocess.Popen(
+                    player + [sound_path],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+                return
     except Exception:
         pass
 
@@ -213,6 +238,8 @@ class DictationAgent:
         ]
 
         self.api_key = ""
+        self._api_key_in_keyring = False
+        self.platform_issues: list[dict] = []
         self.credential_store = CredentialStore()
         self.history = DictationHistory()
         self._active_history_id = None
@@ -287,6 +314,7 @@ class DictationAgent:
     def _load_config(self) -> None:
         if self.credential_store.available:
             self.api_key = self.credential_store.get_api_key()
+            self._api_key_in_keyring = bool(self.api_key)
 
         cfg: Any = {}
         if os.path.exists(CONFIG_FILE):
@@ -311,6 +339,7 @@ class DictationAgent:
                 self.save_config()
         elif legacy_key and not self.api_key:
             self.api_key = legacy_key
+            self._api_key_in_keyring = False
 
     def update_config(self, data: Any) -> None:
         """Validate and apply a settings change. Nothing is applied if any field is invalid."""
@@ -370,8 +399,8 @@ class DictationAgent:
                 "silence_threshold": self.silence_threshold,
                 "writing_profiles": self.writing_profiles,
             }
-            if self.api_key and not self.credential_store.available:
-                # Without an OS credential store the key would otherwise be lost on restart.
+            if self.api_key and not self._api_key_in_keyring:
+                # Without a working OS credential store the key would otherwise be lost on restart.
                 cfg["api_key"] = self.api_key
             try:
                 _write_json_atomic(CONFIG_FILE, cfg)
@@ -380,12 +409,15 @@ class DictationAgent:
 
     def set_api_key(self, value: str) -> bool:
         self.api_key = (value or "").strip()
-        if self.credential_store.available and self.api_key:
-            return self.credential_store.set_api_key(self.api_key)
-        return False
+        stored = bool(self.api_key) and self.credential_store.available and self.credential_store.set_api_key(self.api_key)
+        self._api_key_in_keyring = stored
+        if self.api_key and not stored:
+            log("OS credential store unavailable; the API key will be kept in the settings file.")
+        return stored
 
     def clear_api_key(self) -> bool:
         self.api_key = ""
+        self._api_key_in_keyring = False
         if self.credential_store.available:
             return self.credential_store.delete_api_key()
         return False
@@ -395,12 +427,30 @@ class DictationAgent:
     def start(self) -> None:
         self._running = True
         threading.Thread(target=self.overlay.start, daemon=True).start()
+        set_clipboard_host(self.overlay.call_in_ui)
         self.audio.start()
         self._purge_history(force=True)
 
-        self._listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
-        self._listener.start()
-        log("Agent started and listening for hotkeys.")
+        self.platform_issues = detect_platform_issues()
+        for issue in self.platform_issues:
+            log(f"Setup note: {issue['title']}")
+
+        self._listener = self._create_keyboard_listener()
+        if self._listener:
+            self._listener.start()
+            log("Agent started and listening for hotkeys.")
+
+    def _create_keyboard_listener(self):
+        """Pick a global key listener that can actually see keys on this desktop."""
+        if should_use_evdev_listener():
+            # Wayland: only the kernel input devices see keys typed into other apps.
+            listener = EvdevKeyboardListener(on_press=self._on_press, on_release=self._on_release)
+            set_active_listener(listener)
+            return listener
+        if keyboard is None:
+            log(f"No keyboard listener available: {_PYNPUT_IMPORT_ERROR}")
+            return None
+        return keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
 
     def stop(self) -> None:
         self._running = False
@@ -742,7 +792,8 @@ class DictationAgent:
                         self.history.transition(history_id, DictationStatus.PASTING)
 
                     log(f"Pasting text: {len(text)} characters")
-                    if type_or_paste(text, mode=self.output_mode):
+                    in_terminal = bool(app_context and app_context.category == "terminal")
+                    if type_or_paste(text, mode=self.output_mode, terminal=in_terminal):
                         if history_id:
                             self.history.discard_recovery_audio(recovery_audio_path)
                             self.history.complete(history_id, text, audio_path="")
@@ -1174,4 +1225,5 @@ Comment=AI Dictation Everywhere
             "silence_timeout_seconds": self.silence_timeout_seconds,
             "silence_threshold": self.silence_threshold,
             "writing_profiles": self.writing_profiles,
+            "platform_issues": self.platform_issues,
         }

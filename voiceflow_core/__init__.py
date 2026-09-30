@@ -9,8 +9,10 @@ from .clipboard import (
     safe_clipboard_get,
     safe_clipboard_set,
     send_shortcut,
+    set_clipboard_host,
     type_or_paste,
 )
+from .linux_input import EvdevKeyboardListener, detect_platform_issues, should_use_evdev_listener, set_active_listener
 from .history import DictationHistory, DictationStatus
 from .hotkeys import MODIFIER_MAP, hotkey_signature, normalize_key, preset_for_keys, repair_preset_conflicts
 from .llm import (
@@ -32,6 +34,11 @@ from .tray import SystemTray
 from .version import APP_VERSION, is_newer_version
 
 __all__ = [
+    "set_active_listener",
+    "should_use_evdev_listener",
+    "detect_platform_issues",
+    "EvdevKeyboardListener",
+    "set_clipboard_host",
     "suggest_replacements",
     "profile_for_app",
     "PROFILE_STYLES",

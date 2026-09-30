@@ -8,6 +8,7 @@ if sys.stderr is None:
     sys.stderr = open(os.devnull, "w")
 
 import hmac
+import json
 import secrets
 
 from flask import Flask, render_template, jsonify, request
@@ -30,6 +31,8 @@ ALLOWED_HOSTS = {f'{HOST}:{PORT}', f'localhost:{PORT}'}
 API_TOKEN = secrets.token_urlsafe(32)
 TOKEN_HEADER = 'X-VoiceFlow-Token'
 RELEASES_URL = "https://github.com/HafizMuhammadShah42895/VoiceFlow/releases"
+# Lets a second launch ask the running copy to show its window (readable only by this user).
+INSTANCE_FILE = os.path.join(os.path.expanduser('~'), '.voiceflow', 'instance.json')
 
 app = Flask(
     __name__,
@@ -206,6 +209,14 @@ def add_replacement():
 def open_apps():
     return jsonify({'ok': True, 'apps': agent.list_open_apps()})
 
+@app.route('/api/show', methods=['POST'])
+def show_window():
+    show = app.config.get('SHOW_WINDOW')
+    if not show:
+        return jsonify({'ok': False, 'error': 'No window to show'}), 409
+    show()
+    return jsonify({'ok': True})
+
 @app.route('/api/history/latest/copy', methods=['POST'])
 def copy_latest_history_item():
     if agent.copy_history_item():
@@ -217,6 +228,41 @@ def paste_latest_history_item():
     if agent.paste_history_item():
         return jsonify({'ok': True})
     return jsonify({'ok': False, 'error': 'There is no transcript to paste yet'}), 404
+
+
+def write_instance_file():
+    os.makedirs(os.path.dirname(INSTANCE_FILE), exist_ok=True)
+    descriptor = os.open(INSTANCE_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(descriptor, 'w', encoding='utf-8') as f:
+        json.dump({'port': PORT, 'token': API_TOKEN, 'pid': os.getpid()}, f)
+
+
+def remove_instance_file():
+    try:
+        with open(INSTANCE_FILE, encoding='utf-8') as f:
+            if json.load(f).get('pid') != os.getpid():
+                return
+        os.remove(INSTANCE_FILE)
+    except (OSError, ValueError):
+        pass
+
+
+def show_running_instance():
+    """Ask the already-running VoiceFlow to show its window. Returns True on success."""
+    import urllib.request
+    try:
+        with open(INSTANCE_FILE, encoding='utf-8') as f:
+            info = json.load(f)
+        req = urllib.request.Request(
+            f"http://{HOST}:{int(info['port'])}/api/show",
+            data=b'{}',
+            method='POST',
+            headers={TOKEN_HEADER: str(info['token']), 'Content-Type': 'application/json'},
+        )
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
 
 
 def install_linux_desktop_entry():
@@ -265,7 +311,8 @@ if __name__ == '__main__':
     single_instance = SingleInstance("VoiceFlow_SingleInstance_Mutex")
     if single_instance.is_running:
         print("[VoiceFlow] Another instance is already running. Bringing it to focus.")
-        single_instance.focus_existing_window("VoiceFlow Dashboard")
+        if not show_running_instance():
+            single_instance.focus_existing_window("VoiceFlow Dashboard")
         sys.exit(0)
 
     agent.start()
@@ -276,6 +323,10 @@ if __name__ == '__main__':
     # Start Flask server in a background thread
     t = threading.Thread(target=run_flask, daemon=True)
     t.start()
+    try:
+        write_instance_file()
+    except OSError as e:
+        print(f"Could not write instance file: {e}")
 
     base_url = f'http://{HOST}:{PORT}'
 
@@ -349,6 +400,7 @@ if __name__ == '__main__':
             agent.stop()
         except Exception:
             pass
+        remove_instance_file()
         try:
             single_instance.release()
         except Exception:
@@ -361,8 +413,13 @@ if __name__ == '__main__':
 
     def on_closing():
         if not is_quitting:
-            # Minimize to tray instead of quitting!
-            main_window.hide()
+            if sys.platform == 'win32':
+                # Keep running in the system tray.
+                main_window.hide()
+            else:
+                # Many Linux desktops (e.g. GNOME) show no tray icons, so a hidden
+                # window could never be reopened; minimize to the dock instead.
+                main_window.minimize()
             return False
         return True
 
@@ -377,6 +434,8 @@ if __name__ == '__main__':
         if main_window:
             main_window.show()
             main_window.restore()
+
+    app.config['SHOW_WINDOW'] = open_dashboard
 
     def check_for_updates():
         open_dashboard()
@@ -398,18 +457,15 @@ if __name__ == '__main__':
     tray.start()
 
     if sys.platform.startswith('linux'):
-        if os.environ.get('XDG_SESSION_TYPE', '').lower() == 'wayland':
-            print("\n[WARNING] Wayland display server detected!")
-            print("Global hotkeys (like Alt+Shift) may not work on Wayland due to security restrictions.")
-            print("If dictation hotkeys fail, please switch to an 'Xorg / X11' session at your login screen.\n")
-
+        # Wayland/permission problems are shown in the dashboard (agent.platform_issues).
         try:
             install_linux_desktop_entry()
         except Exception as e:
             print(f"Failed to create Linux app shortcut: {e}")
 
     # Start the webview application
-    icon_path = os.path.join(base_dir, 'static', 'img', 'logo_icon.ico')
+    icon_name = 'logo_icon.ico' if sys.platform == 'win32' else 'logo_final.png'
+    icon_path = os.path.join(base_dir, 'static', 'img', icon_name)
     webview.start(icon=icon_path)
 
     # Fallback cleanup
