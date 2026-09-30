@@ -455,23 +455,51 @@
                         
                         <div class="step">
                             <div class="step-num">1</div>
-                            <p><strong>Main Hotkey (<span class="main-hotkey-label">Alt + Shift</span>):</strong> If no text is selected, VoiceFlow does normal dictation. If text is selected, speak an instruction like "make this professional" and VoiceFlow rewrites the selected text (not available in terminals, code editors, or Excel, where copying has side effects). Press Esc anytime to cancel.</p>
+                            <p><strong>Dictate anywhere:</strong> Click where you want the text, hold <strong><span class="main-hotkey-label">Alt + Shift</span></strong>, speak, and let go. Your words are typed where the cursor is. Prefer not to hold keys? In Settings, choose <strong>Toggle Mode</strong>: press once to start and again to stop (it also stops by itself after a few seconds of silence). Press <strong>Esc</strong> anytime to cancel.</p>
                         </div>
                         <div class="step">
                             <div class="step-num">2</div>
-                            <p><strong>Smart Context-Aware Replies (Ctrl + Shift):</strong> Copy any text (like an email or message) to your clipboard, then hold this hotkey to dictate your response. The AI will intelligently format your dictation as a polite, professional reply to what you copied. You can fully customize how the AI replies in the AI & Privacy settings!</p>
+                            <p><strong>AI Polish (optional):</strong> Turn on <strong>AI Polish</strong> in Settings to fix grammar and remove "um", repeats, and false starts. It only cleans up your words: if you say a question, you get the question typed, never an answer.</p>
                         </div>
                         <div class="step">
                             <div class="step-num">3</div>
-                            <p><strong>Undo Voice Edit:</strong> If the selected-text rewrite is not what you wanted, use the normal Ctrl + Z undo in the app where the text was replaced.</p>
+                            <p><strong>Edit text with your voice:</strong> Select some text, hold <strong><span class="main-hotkey-label">Alt + Shift</span></strong>, and say what to change, like "make this more professional" or "shorten this". VoiceFlow rewrites the selection. Changed your mind? Use <strong>Ctrl + Z</strong>, or <strong>Undo Last AI Edit</strong> in the tray menu. This is off in terminals, code editors, and Excel, where copying has side effects.</p>
                         </div>
                         <div class="step">
                             <div class="step-num">4</div>
-                            <p><strong>Application-Aware Formatting:</strong> When AI Polish is on, VoiceFlow checks the active app name locally and adapts the result. Email becomes more professional, chat becomes shorter, code editors preserve code-like text, and terminals preserve commands.</p>
+                            <p><strong>Instant grammar fix:</strong> Select text and press <strong>Ctrl + Space</strong>. VoiceFlow fixes its grammar in place without you saying anything.</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-num">5</div>
+                            <p><strong>Smart replies:</strong> Copy a message or email you want to answer, then hold <strong><span class="context-hotkey-label">Ctrl + Shift</span></strong> and say what you want to reply. VoiceFlow writes a polished reply. You can change how replies are written in Settings.</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-num">6</div>
+                            <p><strong>A different style for each app:</strong> In <strong>Settings → Writing Profiles</strong>, give apps their own style. For example, short and friendly in Slack, professional in Outlook, or no AI changes at all in Chrome. Pick the apps from the ones you have open. Even without profiles, VoiceFlow adjusts to email, chat, code, and terminal apps when AI Polish is on.</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-num">7</div>
+                            <p><strong>Teach VoiceFlow your words:</strong> If a word keeps coming out wrong, open <strong>History</strong>, click <strong>Fix</strong> on the transcript, and correct it. VoiceFlow offers to remember the fix (for example "docker compose" → "docker-compose") so it is right next time. You can also add <strong>Word Replacements</strong> and <strong>Voice Snippets</strong> (say "my email" to type your address) in Settings.</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-num">8</div>
+                            <p><strong>Your history is safe:</strong> Every dictation is saved in <strong>History</strong>, even if pasting fails, so you never lose what you said. Copy, fix, retry, or delete any of it. Old items are removed automatically after the time you choose in Settings.</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-num">9</div>
+                            <p><strong>Tray menu:</strong> VoiceFlow keeps running after you close this window. Use its icon near the clock to open the dashboard, pause dictation, copy or paste your last transcript, undo the last AI edit, or check for updates. On Linux desktops without tray icons, closing the window minimizes it instead; opening VoiceFlow again brings it back.</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-num">10</div>
+                            <p><strong>If pasting does not work in an app:</strong> In Settings, change <strong>Dictation Output Mode</strong> to <strong>Copy to Clipboard Only</strong>, then press Ctrl + V yourself after dictating.</p>
+                        </div>
+                        <div class="step">
+                            <div class="step-num">11</div>
+                            <p><strong>Linux (Wayland) users:</strong> Wayland needs a one-time permission so VoiceFlow can hear your shortcut and paste into other apps. If it is missing, a card at the top of the Dashboard shows the exact commands with a <strong>Copy commands</strong> button. Run them in a terminal, then log out and back in. Pasting into terminals (Ctrl + Shift + V) is handled automatically.</p>
                         </div>
                         <div class="step" style="margin-bottom: 0;">
-                            <div class="step-num">5</div>
-                            <p><strong>Dictation Output Mode:</strong> If Auto-Type isn't pasting correctly in certain apps, go to Settings and change your output mode to <strong>"Copy to Clipboard Only"</strong>. Then simply press Ctrl+V to paste your dictation perfectly every time.</p>
+                            <div class="step-num">12</div>
+                            <p><strong>Updates:</strong> When a new version is out, the Dashboard shows an <strong>Update available</strong> message. Download the installer from the link and run it. Your settings, history, and API key are kept.</p>
                         </div>
                     </section>
 
@@ -481,10 +509,13 @@
                             <h3 style="color: var(--primary);">Your Privacy is Guaranteed</h3>
                         </div>
                         <p style="font-size: 14px; line-height: 1.6; color: var(--text-main); margin-bottom: 12px;">
-                            <strong>All of your audio is processed securely on your own system.</strong> The core dictation and transcription engine runs entirely locally, meaning your voice recordings and audio files <strong>never leave your device</strong>. 
+                            <strong>You decide what leaves your computer.</strong> With the <strong>Local Whisper</strong> speech engine, your voice is turned into text on this computer and your recordings never leave it. Your history, settings, and word lists are also stored only on this computer, and you can delete them anytime.
+                        </p>
+                        <p style="font-size: 14px; line-height: 1.6; margin-bottom: 12px; color: var(--text-muted);">
+                            Some features use <strong>Groq</strong> (a cloud AI service), only when you turn them on: the <strong>Groq Cloud</strong> speech engine sends your recording, and AI Polish, voice edits, grammar fixes, and smart replies send the text involved (your dictation, the selected text, or the message you copied to reply to).
                         </p>
                         <p style="font-size: 14px; line-height: 1.6; margin-bottom: 0; color: var(--text-muted);">
-                            When you use the AI feature with Groq, only the specific text you highlight is sent to the Groq API for correction. If you require absolute zero-trust privacy, you can switch to <strong>Offline Mode (Local AI)</strong> and use <strong>Ollama</strong> (a completely open-source local model). With Ollama enabled, 100% of your data stays on your machine and nothing is ever sent to the cloud!
+                            For complete privacy, use the <strong>Local Whisper</strong> speech engine and turn on <strong>Offline Mode (Local AI Rewrite)</strong> with <strong>Ollama</strong>. Then nothing is ever sent to the cloud.
                         </p>
                     </section>
                 </div>

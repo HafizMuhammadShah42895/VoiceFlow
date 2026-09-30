@@ -438,6 +438,11 @@
         if (practiceBox) practiceBox.placeholder = `Click here, then hold ${label} to dictate your first test sentence...`;
     }
 
+    function updateContextHotkeyLabels(keys) {
+        const label = formatHotkey(keys.slice(0, 2));
+        document.querySelectorAll('.context-hotkey-label').forEach(el => { el.textContent = label; });
+    }
+
     function loadHotkeyConfig() {
         apiFetch('/api/status')
             .then(r => r.json())
@@ -450,6 +455,7 @@
                 if (data.context_hotkey && data.context_hotkey.length >= 2 && contextHotkey1) {
                     contextHotkey1.value = data.context_hotkey[0];
                     contextHotkey2.value = data.context_hotkey[1];
+                    updateContextHotkeyLabels(data.context_hotkey);
                 }
                 if (data.api_key !== undefined) {
                     apiKey.value = data.api_key;
@@ -641,6 +647,7 @@
                     apiKey.placeholder = 'Saved securely — enter a new key to replace it';
                 }
                 updateHotkeyLabels([k1, k2]);
+                updateContextHotkeyLabels([ck1, ck2]);
                 // The server normalizes app names; show exactly what was saved.
                 loadHotkeyConfig();
                 showToast('Settings successfully applied!');
