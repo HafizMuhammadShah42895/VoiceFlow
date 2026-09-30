@@ -1,6 +1,6 @@
 import re
 
-APP_VERSION = "3.2.0"
+APP_VERSION = "3.2.1"
 
 
 def parse_version(value: str) -> tuple[int, ...]:

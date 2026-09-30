@@ -1,7 +1,7 @@
 # VoiceFlow — Engineering Roadmap & Multi-Agent Progress Tracker
 
 > **Context:** This document serves as the single source of truth for ongoing development across different AI coding agents (**Antigravity** and **Codex**).  
-> **Current Version:** `3.2.0`  
+> **Current Version:** `3.2.1`  
 > **Primary Platform:** Windows 10/11 (with cross-platform support for macOS & Linux, followed by Cloud, Teams & Mobile)
 
 ---

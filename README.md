@@ -4,7 +4,7 @@ VoiceFlow is a Windows desktop dictation app that turns speech into text in any
 application. Hold the global dictation shortcut, speak, and release to paste the
 transcript into the focused app.
 
-## Current release: 3.2.0
+## Current release: 3.2.1
 
 - Global push-to-talk dictation (default: **Alt + Shift**)
 - Local Faster-Whisper or Groq Whisper transcription
