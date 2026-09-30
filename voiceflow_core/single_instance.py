@@ -2,7 +2,6 @@
 
 import os
 import sys
-from typing import Optional
 
 ERROR_ALREADY_EXISTS = 183
 
@@ -33,9 +32,14 @@ class SingleInstance:
                 import fcntl
                 lock_path = os.path.expanduser(f"~/.voiceflow_{self.app_id}.lock")
                 self._lock_file = open(lock_path, "w")
-                fcntl.lockf(self._lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                # flock locks belong to the open file, so a second instance is
+                # detected even from within the same process (lockf is per-process).
+                fcntl.flock(self._lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 self.is_running = False
             except (IOError, OSError):
+                if self._lock_file:
+                    self._lock_file.close()
+                    self._lock_file = None
                 self.is_running = True
 
     def release(self) -> None:

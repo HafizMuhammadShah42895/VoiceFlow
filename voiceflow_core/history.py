@@ -182,6 +182,7 @@ class DictationHistory:
             raise ValueError(f"Invalid dictation transition: {current_status.value} -> {next_status.value}")
 
         allowed_fields = {
+            "mode",
             "raw_text",
             "final_text",
             "language",

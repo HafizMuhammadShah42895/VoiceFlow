@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="voiceflow-token" content="{{ api_token }}">
     <title>VoiceFlow Dashboard</title>
     <link rel="icon" href="/static/img/logo_icon.jpg" type="image/jpeg">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -442,7 +443,7 @@
                         
                         <div class="step">
                             <div class="step-num">1</div>
-                            <p><strong>Main Hotkey (Alt + Shift):</strong> If no text is selected, VoiceFlow does normal dictation. If text is selected, speak an instruction like "make this professional" and VoiceFlow rewrites the selected text. Press Esc anytime to cancel.</p>
+                            <p><strong>Main Hotkey (<span class="main-hotkey-label">Alt + Shift</span>):</strong> If no text is selected, VoiceFlow does normal dictation. If text is selected, speak an instruction like "make this professional" and VoiceFlow rewrites the selected text (not available in terminals, code editors, or Excel, where copying has side effects). Press Esc anytime to cancel.</p>
                         </div>
                         <div class="step">
                             <div class="step-num">2</div>
@@ -497,7 +498,7 @@
                 <h2 id="onboarding-title">Welcome to VoiceFlow</h2>
                 <p class="subtitle">Turn spoken words into polished text in any Windows app. Fast, private, and local-first.</p>
                 <div class="onboarding-points">
-                    <div><strong>1. Push-to-Talk (Alt + Shift)</strong><span>Hold the keys, speak your thoughts, and release to paste.</span></div>
+                    <div><strong>1. Push-to-Talk (<span class="main-hotkey-label">Alt + Shift</span>)</strong><span>Hold the keys, speak your thoughts, and release to paste.</span></div>
                     <div><strong>2. Context-Aware Reply (Ctrl + Shift)</strong><span>Hold while replying to text copied on your clipboard.</span></div>
                     <div><strong>3. Local-First Privacy</strong><span>Your history stays on this PC. Cloud AI is used only if chosen.</span></div>
                 </div>
@@ -528,7 +529,7 @@
             <!-- Step 3: Practice Dictation -->
             <div id="wizard-step-3" class="wizard-step" style="display: none;">
                 <h2>Practice Dictating</h2>
-                <p class="subtitle">Click into the practice box below, hold <strong style="color: var(--accent-light);">Alt + Shift</strong>, say something, and release!</p>
+                <p class="subtitle">Click into the practice box below, hold <strong class="main-hotkey-label" style="color: var(--accent-light);">Alt + Shift</strong>, say something, and release!</p>
                 <div class="practice-box-container">
                     <textarea id="practice-dictation-box" class="input-field" placeholder="Click here, then hold Alt + Shift to dictate your first test sentence..." rows="3"></textarea>
                 </div>

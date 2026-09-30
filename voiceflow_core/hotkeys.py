@@ -1,7 +1,7 @@
 """Hotkey normalization, conflict detection, and listener coordination."""
 
 import sys
-from typing import Callable, Optional
+from typing import Iterable, Optional
 
 from voiceflow_core.safe_logging import log
 
@@ -72,3 +72,18 @@ def repair_preset_conflicts(
                 signature = frozenset(replacement)
                 log(f"Changed conflicting preset hotkey for '{preset.get('name', 'Preset')}'.")
         used.add(signature)
+
+
+def preset_for_keys(ai_presets: list[dict], keys_pressed: Iterable[str]) -> Optional[dict]:
+    """Return the preset whose shortcut is held, preferring the most specific one."""
+    pressed = set(keys_pressed)
+    best = None
+    best_size = 0
+    for preset in ai_presets or []:
+        if not isinstance(preset, dict):
+            continue
+        signature = hotkey_signature(preset.get("hotkeys", []))
+        if len(signature) >= 2 and signature.issubset(pressed) and len(signature) > best_size:
+            best = preset
+            best_size = len(signature)
+    return best

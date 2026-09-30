@@ -11,6 +11,8 @@ transcript into the focused app.
 - Optional AI Polish with filler, repetition, stutter, and false-start cleanup
 - Context-aware replies based on explicitly copied clipboard text
 - Custom highlight-and-rewrite presets with validated global shortcuts
+- Voice edit: select text, hold the dictation shortcut, and speak an instruction
+  (skipped in terminals, code editors, and Excel, where copying has side effects)
 - Searchable local transcript history with Copy and Delete controls
 - Crash recovery with Retry for interrupted recordings
 - Writing styles, deterministic word replacements, and reusable voice snippets
@@ -33,11 +35,15 @@ python app.py
 ```
 
 The desktop window opens automatically. The local dashboard is served only on
-`127.0.0.1:5000`.
+`127.0.0.1:5000`. Every API request must carry a random token that is generated
+at each launch and embedded in the dashboard page, and requests with any other
+`Host` header are refused, so web pages open in your browser cannot call the
+local API.
 
 ## Test
 
 ```powershell
+python -m pip install -r requirements-dev.txt
 python -m unittest discover -s tests -v
 python -m compileall -q app.py dictation_agent.py voiceflow_core build.py
 node --check static\js\app.js
@@ -57,6 +63,17 @@ ISCC.exe VoiceFlow.iss
 ```
 
 The resulting installer is `dist\VoiceFlow_Setup.exe`.
+
+## Release
+
+Pushes and pull requests only build and test. To publish a release:
+
+1. Bump `APP_VERSION` in `voiceflow_core/version.py` and `AppVersion` in
+   `VoiceFlow.iss` to the same value.
+2. Commit, then tag and push: `git tag v3.1.1 && git push origin v3.1.1`.
+
+CI refuses to release if the tag does not match `APP_VERSION`, which keeps the
+in-app update check accurate.
 
 ## Privacy notes
 

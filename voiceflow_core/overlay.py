@@ -3,7 +3,18 @@
 import os
 import sys
 import time
-from typing import Optional
+
+NOTIFICATION_SECONDS = 2.0
+ERROR_SECONDS = 3.0
+
+_STATE_ICONS = {
+    "listening": ("◉", "#f38ba8"),
+    "processing": ("⋯", "#f9e2af"),
+    "ai_edit": ("✦", "#cba6f7"),
+    "error": ("✕", "#f38ba8"),
+    "notification": ("✓", "#a6e3a1"),
+}
+_TRANSIENT_STATES = {"notification", "error"}
 
 
 class AnimatedGIF:
@@ -28,17 +39,23 @@ class AnimatedGIF:
 
 
 class FloatingOverlay:
+    """Tk HUD. State setters may be called from any thread; only the Tk thread draws.
+
+    Notifications and errors stay visible for their full duration. A request to
+    go idle while one is showing is deferred until it expires, so a message is
+    not wiped out by the pipeline finishing immediately afterwards.
+    """
+
     def __init__(self):
         self.root = None
         self.label = None
         self.current_state = "idle"
-        self.live_text = ""
-        self.volume_level = 0.0
-        self.notification_text = ""
-        self.error_text = ""
-        self.notification_end_time = 0.0
+        self.message_text = ""
+        self.transient_end_time = 0.0
+        self._resume_state = "idle"
         self.gifs = {}
         self.frame_count = 0
+        self._rendered = None
 
     def start(self) -> None:
         import tkinter as tk
@@ -55,6 +72,7 @@ class FloatingOverlay:
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         img_dir = os.path.join(base_dir, "static", "img")
 
+        # Optional animated states; the icon glyphs are used when a GIF is absent.
         self.gifs = {
             "listening": AnimatedGIF(os.path.join(img_dir, "listening.gif")),
             "processing": AnimatedGIF(os.path.join(img_dir, "processing.gif")),
@@ -72,6 +90,7 @@ class FloatingOverlay:
             padx=15,
             pady=8,
             justify="center",
+            compound="left",
         )
         self.label.pack()
 
@@ -79,53 +98,43 @@ class FloatingOverlay:
         self.update_loop()
         self.root.mainloop()
 
-    def update_volume(self, volume: float) -> None:
-        self.volume_level = volume
-
     def update_loop(self) -> None:
         self.frame_count += 1
 
-        if self.current_state != "idle":
-            gif = self.gifs.get(self.current_state)
-            frame = gif.get_frame(self.frame_count) if gif else None
+        if self.current_state in _TRANSIENT_STATES and time.time() > self.transient_end_time:
+            self.current_state = self._resume_state
+            self.message_text = ""
 
-            if self.current_state == "listening":
-                if frame:
-                    self.label.config(image=frame, text="")
-                else:
-                    self.label.config(image="", text="◉", fg="#f38ba8")
-            elif self.current_state == "processing":
-                if frame:
-                    self.label.config(image=frame, text="")
-                else:
-                    self.label.config(image="", text="⋯", fg="#f9e2af")
-            elif self.current_state == "ai_edit":
-                if frame:
-                    self.label.config(image=frame, text="")
-                else:
-                    self.label.config(image="", text="✦", fg="#cba6f7")
-            elif self.current_state == "error":
-                if frame:
-                    self.label.config(image=frame, text="")
-                else:
-                    self.label.config(image="", text="✕", fg="#f38ba8")
-            elif self.current_state == "notification":
-                if time.time() > self.notification_end_time:
-                    self.set_state("idle")
-                else:
-                    if frame:
-                        self.label.config(image=frame, text="")
-                    else:
-                        self.label.config(image="", text="✓", fg="#a6e3a1")
-
-            if self.current_state != "idle":
-                self._show_centered()
-        else:
+        state = self.current_state
+        if state == "idle":
+            self._rendered = None
             if self.root:
                 self.root.withdraw()
+        else:
+            self._render(state)
+            self._show_centered()
 
         if self.root:
             self.root.after(50, self.update_loop)
+
+    def _render(self, state: str) -> None:
+        icon, color = _STATE_ICONS.get(state, ("", "#f4f4f5"))
+        message = self.message_text if state in _TRANSIENT_STATES else ""
+        gif = self.gifs.get(state)
+        frame = gif.get_frame(self.frame_count) if gif else None
+
+        if message:
+            text = message if frame else f"{icon}  {message}"
+            font = ("Segoe UI", 13)
+        else:
+            text = "" if frame else icon
+            font = ("Segoe UI Emoji", 24)
+
+        key = (state, text, id(frame))
+        if key == self._rendered:
+            return
+        self._rendered = key
+        self.label.config(image=frame or "", text=text, fg=color, font=font)
 
     def _show_centered(self) -> None:
         if not self.root:
@@ -139,19 +148,26 @@ class FloatingOverlay:
         y = hs - 150
         self.root.geometry(f"+{x}+{y}")
 
-    def set_state(self, state: str) -> None:
-        self.current_state = state
-        if state != "listening":
-            self.live_text = ""
+    def _transient_active(self) -> bool:
+        return self.current_state in _TRANSIENT_STATES and time.time() <= self.transient_end_time
 
-    def set_live_text(self, text: str) -> None:
-        self.live_text = text
+    def set_state(self, state: str) -> None:
+        if state == "idle" and self._transient_active():
+            self._resume_state = "idle"
+            return
+        self._resume_state = "idle"
+        self.message_text = ""
+        self.current_state = state
+
+    def _show_transient(self, state: str, message: str, seconds: float) -> None:
+        if self.current_state not in _TRANSIENT_STATES:
+            self._resume_state = self.current_state
+        self.message_text = message
+        self.transient_end_time = time.time() + seconds
+        self.current_state = state
 
     def show_error(self, message: str) -> None:
-        self.error_text = message
-        self.current_state = "error"
+        self._show_transient("error", message, ERROR_SECONDS)
 
     def show_notification(self, message: str) -> None:
-        self.notification_text = message
-        self.current_state = "notification"
-        self.notification_end_time = time.time() + 2.0
+        self._show_transient("notification", message, NOTIFICATION_SECONDS)

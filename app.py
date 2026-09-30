@@ -7,14 +7,29 @@ if sys.stdout is None:
 if sys.stderr is None:
     sys.stderr = open(os.devnull, "w")
 
+import hmac
+import secrets
+
 from flask import Flask, render_template, jsonify, request
 from dictation_agent import DictationAgent, safe_clipboard_set
-from voiceflow_core import SingleInstance, SystemTray, APP_VERSION
+from voiceflow_core import SingleInstance, SystemTray, APP_VERSION, is_newer_version
 
 if getattr(sys, 'frozen', False):
     base_dir = sys._MEIPASS
 else:
     base_dir = os.path.dirname(os.path.abspath(__file__))
+
+HOST = '127.0.0.1'
+PORT = 5000
+# Browsers always send the port for a non-default port, so a DNS-rebinding page
+# (Host: attacker.example:5000) can never match these.
+ALLOWED_HOSTS = {f'{HOST}:{PORT}', f'localhost:{PORT}'}
+# Per-launch secret embedded in the dashboard HTML. Other web pages cannot read
+# that HTML (same-origin policy) and cannot attach a custom header to a
+# cross-origin request without a CORS preflight, which this server never grants.
+API_TOKEN = secrets.token_urlsafe(32)
+TOKEN_HEADER = 'X-VoiceFlow-Token'
+RELEASES_URL = "https://github.com/HafizMuhammadShah42895/VoiceFlow/releases"
 
 app = Flask(
     __name__,
@@ -25,13 +40,32 @@ app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1 GiB local file limit
 
 agent = DictationAgent()
 
+
+@app.before_request
+def protect_local_api():
+    if request.host not in ALLOWED_HOSTS:
+        return jsonify({'ok': False, 'error': 'Forbidden host'}), 403
+    if request.path.startswith('/api/'):
+        supplied = request.headers.get(TOKEN_HEADER, '')
+        if not hmac.compare_digest(supplied, API_TOKEN):
+            return jsonify({'ok': False, 'error': 'Missing or invalid API token'}), 403
+    return None
+
+
+@app.after_request
+def disable_caching(response):
+    # Pages carry the per-launch token; never let a stale copy be reused.
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
 @app.route('/')
 def index():
-    return render_template('index.html', app_version=APP_VERSION)
+    return render_template('index.html', app_version=APP_VERSION, api_token=API_TOKEN)
 
 @app.route('/mini')
 def mini():
-    return render_template('mini.html')
+    return render_template('mini.html', api_token=API_TOKEN)
 
 @app.route('/api/status')
 def get_status():
@@ -39,63 +73,14 @@ def get_status():
 
 @app.route('/api/config', methods=['POST'])
 def set_config():
+    data = request.get_json(silent=True)
     try:
-        data = request.get_json()
-        if data:
-            if 'key1' in data and 'key2' in data:
-                agent.set_hotkey(data['key1'], data['key2'])
-            if 'context_key1' in data and 'context_key2' in data:
-                agent.set_context_hotkey(data['context_key1'], data['context_key2'])
-            if 'ai_presets' in data:
-                agent.ai_presets = data['ai_presets']
-            if 'api_key' in data:
-                agent.set_api_key(data['api_key'])
-            if data.get('clear_api_key'):
-                agent.clear_api_key()
-            if 'context_prompt' in data:
-                agent.context_prompt = data['context_prompt']
-            if 'main_dictation_ai' in data:
-                agent.main_dictation_ai = data['main_dictation_ai']
-            if 'run_at_startup' in data:
-                agent.set_startup(data['run_at_startup'])
-            if 'dictation_language' in data:
-                agent.dictation_language = data['dictation_language']
-            if 'context_aware_dictation' in data:
-                agent.context_aware_dictation = data['context_aware_dictation']
-            if 'app_aware_formatting' in data:
-                agent.app_aware_formatting = bool(data['app_aware_formatting'])
-            if 'output_mode' in data:
-                agent.output_mode = data['output_mode']
-            if data.get('dictation_trigger_mode') in {'hold', 'toggle'}:
-                agent.dictation_trigger_mode = data['dictation_trigger_mode']
-            if 'silence_auto_stop' in data:
-                agent.silence_auto_stop = bool(data['silence_auto_stop'])
-            if 'silence_timeout_seconds' in data:
-                agent.silence_timeout_seconds = max(3.0, float(data['silence_timeout_seconds']))
-            if 'silence_threshold' in data:
-                agent.silence_threshold = max(0.001, float(data['silence_threshold']))
-            if 'use_local_llm' in data:
-                agent.use_local_llm = data['use_local_llm']
-            if 'transcription_engine' in data:
-                agent.transcription_engine = data['transcription_engine']
-            if 'custom_vocabulary' in data:
-                agent.custom_vocabulary = data['custom_vocabulary']
-            if data.get('writing_style') in {'natural', 'concise', 'professional', 'casual'}:
-                agent.writing_style = data['writing_style']
-            if 'text_replacements' in data:
-                agent.text_replacements = data['text_replacements']
-            if 'voice_snippets' in data:
-                agent.voice_snippets = data['voice_snippets']
-            if 'history_retention_days' in data:
-                agent.history_retention_days = max(0, int(data['history_retention_days']))
-                agent.history.purge_older_than(agent.history_retention_days)
-            if 'onboarding_complete' in data:
-                agent.onboarding_complete = bool(data['onboarding_complete'])
-
-            agent.save_config()
-            return jsonify({'ok': True, 'hotkey': list(agent.hotkey)})
-    except Exception as e:
+        agent.update_config(data)
+    except ValueError as e:
         return jsonify({'ok': False, 'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    return jsonify({'ok': True, 'hotkey': list(agent.hotkey)})
 
 @app.route('/api/check_update')
 def check_update():
@@ -108,23 +93,14 @@ def check_update():
         )
         with urllib.request.urlopen(req, timeout=3) as resp:
             data = json.loads(resp.read().decode('utf-8'))
-            latest_tag = data.get("tag_name", "").lstrip("v")
-            current = APP_VERSION.lstrip("v")
-            has_update = False
-            if latest_tag:
-                try:
-                    latest_parts = [int(p) for p in latest_tag.split('.') if p.isdigit()]
-                    current_parts = [int(p) for p in current.split('.') if p.isdigit()]
-                    has_update = latest_parts > current_parts
-                except Exception:
-                    has_update = latest_tag != current
-            return jsonify({
-                "ok": True,
-                "update_available": has_update,
-                "latest_version": latest_tag,
-                "current_version": current,
-                "release_url": data.get("html_url", "https://github.com/HafizMuhammadShah42895/VoiceFlow/releases")
-            })
+        latest_tag = data.get("tag_name", "").lstrip("v")
+        return jsonify({
+            "ok": True,
+            "update_available": is_newer_version(latest_tag, APP_VERSION),
+            "latest_version": latest_tag,
+            "current_version": APP_VERSION,
+            "release_url": data.get("html_url", RELEASES_URL)
+        })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "update_available": False, "current_version": APP_VERSION})
 
@@ -158,18 +134,7 @@ def transcribe_file_api():
 
 @app.route('/api/analytics', methods=['GET'])
 def get_analytics():
-    try:
-        data = agent.history.analytics()
-        analytics_file = os.path.expanduser('~/.voiceflow_analytics.json')
-        if os.path.exists(analytics_file):
-            import json
-            with open(analytics_file, 'r', encoding='utf-8') as file_handle:
-                legacy = json.load(file_handle)
-            data['total_words'] += max(0, int(legacy.get('total_words', 0)))
-            data['sessions'] += max(0, int(legacy.get('sessions', 0)))
-        return jsonify(data)
-    except Exception:
-        return jsonify({'total_words': 0, 'sessions': 0})
+    return jsonify(agent.get_analytics())
 
 @app.route('/api/history', methods=['GET', 'DELETE'])
 def get_history():
@@ -229,11 +194,47 @@ def paste_latest_history_item():
         return jsonify({'ok': True})
     return jsonify({'ok': False, 'error': 'There is no transcript to paste yet'}), 404
 
-import webview
-import threading
-import multiprocessing
+
+def install_linux_desktop_entry():
+    """Create/refresh the application-menu shortcut on Linux desktops."""
+    import shutil
+    apps_dir = os.path.expanduser('~/.local/share/applications')
+    icons_dir = os.path.expanduser('~/.local/share/icons')
+    os.makedirs(apps_dir, exist_ok=True)
+    os.makedirs(icons_dir, exist_ok=True)
+
+    desktop_file = os.path.join(apps_dir, 'VoiceFlow.desktop')
+    icon_dest = os.path.join(icons_dir, 'voiceflow_icon.png')
+
+    icon_src = os.path.join(base_dir, 'static', 'img', 'logo_final.png')
+    if os.path.exists(icon_src):
+        shutil.copy2(icon_src, icon_dest)
+
+    if getattr(sys, 'frozen', False):
+        exec_line = f'"{os.path.abspath(sys.executable)}"'
+    else:
+        # Each argument is quoted separately; quoting both together makes the
+        # launcher look for a single executable named "python app.py".
+        exec_line = f'"{sys.executable}" "{os.path.abspath(sys.argv[0])}"'
+
+    content = f"""[Desktop Entry]
+Type=Application
+Name=VoiceFlow
+Comment=AI Dictation Everywhere
+Exec={exec_line}
+Icon={icon_dest}
+Terminal=false
+Categories=Utility;
+"""
+    with open(desktop_file, 'w') as f:
+        f.write(content)
+
 
 if __name__ == '__main__':
+    import threading
+    import multiprocessing
+    import webview
+
     multiprocessing.freeze_support()
 
     # Phase 1: Single Instance Mutex Protection
@@ -246,11 +247,13 @@ if __name__ == '__main__':
     agent.start()
 
     def run_flask():
-        app.run(debug=False, host='127.0.0.1', port=5000, use_reloader=False)
+        app.run(debug=False, host=HOST, port=PORT, use_reloader=False)
 
     # Start Flask server in a background thread
     t = threading.Thread(target=run_flask, daemon=True)
     t.start()
+
+    base_url = f'http://{HOST}:{PORT}'
 
     class Api:
         def __init__(self):
@@ -263,7 +266,7 @@ if __name__ == '__main__':
             if not self._mini_window:
                 self._mini_window = webview.create_window(
                     'VoiceFlow Mini',
-                    'http://127.0.0.1:5000/mini',
+                    f'{base_url}/mini',
                     width=220,
                     height=120,
                     frameless=True,
@@ -300,7 +303,7 @@ if __name__ == '__main__':
 
     main_window = webview.create_window(
         'VoiceFlow Dashboard',
-        'http://127.0.0.1:5000',
+        base_url,
         width=600,
         height=750,
         min_size=(600, 750),
@@ -351,12 +354,20 @@ if __name__ == '__main__':
             main_window.show()
             main_window.restore()
 
+    def check_for_updates():
+        open_dashboard()
+        try:
+            main_window.evaluate_js('window.checkAppUpdates && window.checkAppUpdates(true)')
+        except Exception as e:
+            print(f"Could not start update check: {e}")
+
     tray = SystemTray(
         on_open_dashboard=open_dashboard,
         on_toggle_pause=agent.toggle_pause,
         on_copy_last=agent.copy_history_item,
         on_paste_last=agent.paste_history_item,
-        on_check_updates=open_dashboard,
+        on_undo_voice_edit=agent.undo_last_voice_edit,
+        on_check_updates=check_for_updates,
         on_quit=quit_voiceflow,
         is_paused_fn=lambda: agent.is_paused,
     )
@@ -369,40 +380,12 @@ if __name__ == '__main__':
             print("If dictation hotkeys fail, please switch to an 'Xorg / X11' session at your login screen.\n")
 
         try:
-            import shutil
-            apps_dir = os.path.expanduser('~/.local/share/applications')
-            icons_dir = os.path.expanduser('~/.local/share/icons')
-            os.makedirs(apps_dir, exist_ok=True)
-            os.makedirs(icons_dir, exist_ok=True)
-
-            desktop_file = os.path.join(apps_dir, 'VoiceFlow.desktop')
-            icon_dest = os.path.join(icons_dir, 'voiceflow_icon.png')
-
-            icon_src = os.path.join(os.path.dirname(__file__), 'static', 'img', 'logo_final.png')
-            if os.path.exists(icon_src):
-                shutil.copy2(icon_src, icon_dest)
-
-            if getattr(sys, 'frozen', False):
-                exe_path = os.path.abspath(sys.executable)
-            else:
-                exe_path = f"{sys.executable} {os.path.abspath(sys.argv[0])}"
-
-            content = f"""[Desktop Entry]
-Type=Application
-Name=VoiceFlow
-Comment=AI Dictation Everywhere
-Exec="{exe_path}"
-Icon={icon_dest}
-Terminal=false
-Categories=Utility;
-"""
-            with open(desktop_file, 'w') as f:
-                f.write(content)
+            install_linux_desktop_entry()
         except Exception as e:
             print(f"Failed to create Linux app shortcut: {e}")
 
     # Start the webview application
-    icon_path = os.path.join(os.path.dirname(__file__), 'static', 'img', 'logo_icon.ico')
+    icon_path = os.path.join(base_dir, 'static', 'img', 'logo_icon.ico')
     webview.start(icon=icon_path)
 
     # Fallback cleanup

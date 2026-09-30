@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="voiceflow-token" content="{{ api_token }}">
     <title>VoiceFlow Mini</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
@@ -83,7 +84,8 @@
         }
 
         function pollStatus() {
-            fetch('/api/status')
+            const token = document.querySelector('meta[name="voiceflow-token"]').content;
+            fetch('/api/status', { headers: { 'X-VoiceFlow-Token': token } })
                 .then(r => r.json())
                 .then(data => {
                     const status = data.status;
@@ -96,9 +98,9 @@
                         dot.classList.add('listening');
                         text.innerText = 'Listening...';
                         text.style.color = '#a6e3a1';
-                    } else if (status === 'processing') {
+                    } else if (status === 'processing' || status === 'ai_edit') {
                         dot.classList.add('processing');
-                        text.innerText = 'Processing...';
+                        text.innerText = status === 'ai_edit' ? 'AI Polish...' : 'Processing...';
                         text.style.color = '#f9e2af';
                     } else {
                         text.innerText = 'Idle';

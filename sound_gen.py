@@ -1,5 +1,4 @@
 import wave, math, struct
-import os
 
 def generate_tone(filename, freq_start, freq_end, duration, vol=0.5):
     sample_rate = 44100

@@ -1,17 +1,16 @@
-flask
-pyaudio
-SpeechRecognition
-pynput
-pyautogui
-faster-whisper
-pyperclip
-groq
-python-dotenv
-pywebview
-pyinstaller
-keyring
-pystray
-Pillow
-PyQt5; sys_platform == "linux"
-PyQtWebEngine; sys_platform == "linux"
-qtpy; sys_platform == "linux"
+# Runtime dependencies. Ranges allow bug-fix updates but block untested major versions.
+flask>=3.0,<4
+pyaudio>=0.2.14,<0.3
+pynput>=1.8,<2
+pyautogui>=0.9.54,<1
+faster-whisper>=1.2,<2
+numpy>=1.26,<3
+pyperclip>=1.9,<2
+groq>=0.11,<1
+pywebview>=6.2,<7
+keyring>=25,<26
+pystray>=0.19.5,<0.20
+Pillow>=11,<12
+PyQt5>=5.15,<6; sys_platform == "linux"
+PyQtWebEngine>=5.15,<6; sys_platform == "linux"
+qtpy>=2,<3; sys_platform == "linux"

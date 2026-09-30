@@ -1,7 +1,6 @@
 """LLM integration for text polishing, writing styles, and contextual rewrite."""
 
 import json
-import time
 import urllib.request
 from typing import Callable, Optional
 
@@ -32,9 +31,77 @@ WRITING_STYLE_PROMPTS = {
     "casual": "Use a warm, conversational, casual tone.",
 }
 
+GROQ_CHAT_MODEL = "openai/gpt-oss-20b"
+OLLAMA_CHAT_URL = "http://localhost:11434/api/chat"
+OLLAMA_CHAT_MODEL = "llama3"
+
 
 class LLMService:
     """Manages AI Polish, Smart Replies, and Custom Presets via Groq or Ollama."""
+
+    @staticmethod
+    def _chat(
+        system_prompt: str,
+        user_text: str,
+        api_key: str,
+        use_local_llm: bool,
+        temperature: float,
+        on_error: Optional[Callable[[str], None]] = None,
+    ) -> Optional[str]:
+        """Send one chat completion to Ollama or Groq. Returns None on failure."""
+        if use_local_llm:
+            log("Sending to Local Ollama LLM...")
+            try:
+                payload = {
+                    "model": OLLAMA_CHAT_MODEL,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_text},
+                    ],
+                    "stream": False,
+                    "options": {"temperature": temperature},
+                }
+                req = urllib.request.Request(
+                    OLLAMA_CHAT_URL,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                )
+                with urllib.request.urlopen(req, timeout=120) as response:
+                    res_data = json.loads(response.read().decode("utf-8"))
+                log("Local AI response received.")
+                return res_data.get("message", {}).get("content", "").strip()
+            except Exception as e:
+                log(f"Local Ollama API Error: {e}")
+                if on_error:
+                    on_error("Ollama is offline")
+                return None
+
+        if not api_key:
+            log("API key missing. Skipping AI request.")
+            if on_error:
+                on_error("Groq API key missing")
+            return None
+
+        try:
+            from groq import Groq
+
+            client = Groq(api_key=api_key)
+            log("Sending to Groq LLM...")
+            response = client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_text},
+                ],
+                model=GROQ_CHAT_MODEL,
+                temperature=temperature,
+            )
+            log("Groq response received.")
+            return (response.choices[0].message.content or "").strip()
+        except Exception as e:
+            log(f"Groq API Error: {e}")
+            if on_error:
+                on_error("Groq API error")
+            return None
 
     @staticmethod
     def enhance_with_llm(
@@ -44,64 +111,7 @@ class LLMService:
         use_local_llm: bool = False,
         on_error: Optional[Callable[[str], None]] = None,
     ) -> Optional[str]:
-        if use_local_llm:
-            log("Sending to Local Ollama LLM for polish...")
-            try:
-                url = "http://localhost:11434/api/chat"
-                payload = {
-                    "model": "llama3",
-                    "messages": [
-                        {"role": "system", "content": prompt},
-                        {"role": "user", "content": text},
-                    ],
-                    "stream": False,
-                }
-                req = urllib.request.Request(
-                    url,
-                    data=json.dumps(payload).encode("utf-8"),
-                    headers={"Content-Type": "application/json"},
-                )
-                with urllib.request.urlopen(req, timeout=120) as response:
-                    res_data = json.loads(response.read().decode("utf-8"))
-                    polished = res_data.get("message", {}).get("content", "").strip()
-                    log("Local AI polish complete.")
-                    return polished
-            except Exception as e:
-                log(f"Local Ollama API Error: {e}")
-                if on_error:
-                    on_error("❌ Ollama Offline!")
-                time.sleep(2.5)
-                return None
-
-        if not api_key:
-            log("API key missing. Skipping AI enhancement.")
-            if on_error:
-                on_error("❌ API Key Missing!")
-            time.sleep(2.5)
-            return None
-
-        try:
-            from groq import Groq
-
-            client = Groq(api_key=api_key)
-            log("Sending to Groq LLM for polish...")
-            response = client.chat.completions.create(
-                messages=[
-                    {"role": "system", "content": prompt},
-                    {"role": "user", "content": text},
-                ],
-                model="openai/gpt-oss-20b",
-                temperature=0.0,
-            )
-            polished = response.choices[0].message.content.strip()
-            log("AI polish complete.")
-            return polished
-        except Exception as e:
-            log(f"Groq API Error: {e}")
-            if on_error:
-                on_error("❌ Groq API Error!")
-            time.sleep(2.5)
-            return None
+        return LLMService._chat(prompt, text, api_key, use_local_llm, 0.0, on_error)
 
     @staticmethod
     def apply_post_processing(
@@ -113,12 +123,11 @@ class LLMService:
         context_prompt: str = DEFAULT_CONTEXT_PROMPT,
         clipboard_context: str = "",
         app_instruction: str = "",
+        use_local_llm: bool = False,
+        on_error: Optional[Callable[[str], None]] = None,
     ) -> str:
+        """Polish dictated text. Falls back to the unpolished text on any failure."""
         if not is_context_recording and not main_dictation_ai:
-            return text
-
-        if not api_key:
-            log("API key missing. Cannot post-process with Groq.")
             return text
 
         system_prompt = (
@@ -141,20 +150,5 @@ class LLMService:
             if app_instruction.strip():
                 user_prompt += f"Application-aware rule: {app_instruction.strip()}\n"
 
-        try:
-            from groq import Groq
-
-            client = Groq(api_key=api_key)
-            completion = client.chat.completions.create(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                model="openai/gpt-oss-20b",
-                temperature=0.3,
-            )
-            edited_text = completion.choices[0].message.content.strip()
-            return edited_text
-        except Exception as e:
-            log(f"Groq LLM error during post-processing: {e}")
-            return text
+        edited_text = LLMService._chat(system_prompt, user_prompt, api_key, use_local_llm, 0.3, on_error)
+        return edited_text or text

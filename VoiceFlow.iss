@@ -1,5 +1,6 @@
 [Setup]
 AppName=VoiceFlow
+; Keep in sync with voiceflow_core/version.py (CI fails if they differ).
 AppVersion=3.1.0
 AppPublisher=Waliq
 DefaultDirName={autopf}\VoiceFlow

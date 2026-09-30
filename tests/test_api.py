@@ -6,17 +6,8 @@ import unittest
 from pathlib import Path
 
 
-class _FakeHistory:
-    def analytics(self):
-        return {"total_words": 2, "sessions": 1}
-
-    def purge_older_than(self, _days):
-        return 0
-
-
 class _FakeAgent:
     def __init__(self):
-        self.history = _FakeHistory()
         self.hotkey = {"alt", "shift"}
         self.context_hotkey = {"ctrl", "shift"}
         self.ai_presets = []
@@ -30,8 +21,13 @@ class _FakeAgent:
     def get_config(self):
         return {"status": "idle", "hotkey": ["alt", "shift"]}
 
-    def save_config(self):
-        return None
+    def update_config(self, data):
+        if not isinstance(data, dict) or not data:
+            raise ValueError("Expected a JSON object with the settings to change")
+        self.last_config = data
+
+    def get_analytics(self):
+        return {"total_words": 2, "sessions": 1}
 
     def get_history(self, limit=100, offset=0, query=""):
         return self.items[offset:offset + limit]
@@ -92,32 +88,73 @@ class ApiTests(unittest.TestCase):
             "final_text": "Hello.",
         }]
         self.client = self.module.app.test_client()
+        self.base_url = "http://127.0.0.1:5000"
+        self.headers = {"X-VoiceFlow-Token": self.module.API_TOKEN}
+
+    def request(self, method, path, **kwargs):
+        headers = {**self.headers, **kwargs.pop("headers", {})}
+        base_url = kwargs.pop("base_url", self.base_url)
+        return self.client.open(path, method=method, headers=headers, base_url=base_url, **kwargs)
+
+    def get(self, path, **kwargs):
+        return self.request("GET", path, **kwargs)
+
+    def post(self, path, **kwargs):
+        return self.request("POST", path, **kwargs)
+
+    def delete(self, path, **kwargs):
+        return self.request("DELETE", path, **kwargs)
+
+    def test_api_rejects_requests_without_token(self):
+        response = self.client.post("/api/history/latest/paste", base_url=self.base_url)
+        self.assertEqual(response.status_code, 403)
+        wrong = self.post("/api/history/latest/paste", headers={"X-VoiceFlow-Token": "guess"})
+        self.assertEqual(wrong.status_code, 403)
+
+    def test_rejects_dns_rebinding_host(self):
+        response = self.get("/api/history", base_url="http://attacker.example:5000")
+        self.assertEqual(response.status_code, 403)
+        page = self.client.get("/", base_url="http://attacker.example:5000")
+        self.assertEqual(page.status_code, 403)
+
+    def test_dashboard_embeds_token(self):
+        page = self.client.get("/", base_url=self.base_url)
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(self.module.API_TOKEN, page.get_data(as_text=True))
+
+    def test_config_rejects_empty_body(self):
+        response = self.post("/api/config", data="", content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.get_json()["ok"])
+
+    def test_analytics_endpoint(self):
+        self.assertEqual(self.get("/api/analytics").get_json(), {"total_words": 2, "sessions": 1})
 
     def test_history_contract(self):
-        response = self.client.get("/api/history")
+        response = self.get("/api/history")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["items"][0]["id"], "item-1")
 
-        copy_response = self.client.post("/api/history/item-1/copy")
+        copy_response = self.post("/api/history/item-1/copy")
         self.assertEqual(copy_response.status_code, 200)
         self.assertTrue(copy_response.get_json()["ok"])
 
-        delete_response = self.client.delete("/api/history/item-1")
+        delete_response = self.delete("/api/history/item-1")
         self.assertEqual(delete_response.status_code, 200)
-        self.assertEqual(self.client.get("/api/history").get_json()["items"], [])
+        self.assertEqual(self.get("/api/history").get_json()["items"], [])
 
     def test_latest_route_is_not_treated_as_an_item_id(self):
-        response = self.client.post("/api/history/latest/copy")
+        response = self.post("/api/history/latest/copy")
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.get_json()["ok"])
 
     def test_clear_history(self):
-        response = self.client.delete("/api/history")
+        response = self.delete("/api/history")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["deleted"], 1)
 
     def test_upload_uses_generated_temp_filename(self):
-        response = self.client.post(
+        response = self.post(
             "/api/transcribe_file",
             data={"file": (io.BytesIO(b"not-real-audio"), "../../outside.wav")},
             content_type="multipart/form-data",
@@ -128,7 +165,7 @@ class ApiTests(unittest.TestCase):
         self.assertFalse(Path(self.module.agent.last_file_path).exists())
 
     def test_check_update_endpoint(self):
-        response = self.client.get("/api/check_update")
+        response = self.get("/api/check_update")
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
         self.assertIn("update_available", data)

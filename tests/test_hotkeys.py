@@ -1,5 +1,5 @@
 import unittest
-from voiceflow_core.hotkeys import MODIFIER_MAP, hotkey_signature, normalize_key, repair_preset_conflicts
+from voiceflow_core.hotkeys import hotkey_signature, normalize_key, preset_for_keys, repair_preset_conflicts
 
 
 class DummyKey:
@@ -31,6 +31,16 @@ class HotkeyTests(unittest.TestCase):
         self.assertNotEqual(p1_sig, frozenset(hotkey))
         self.assertNotEqual(p1_sig, frozenset(context_hotkey))
         self.assertIn(p1_sig, {frozenset(["ctrl", "space"]), frozenset(["alt", "space"]), frozenset(["shift", "space"]), frozenset(["ctrl", "alt"])})
+
+    def test_preset_for_keys_prefers_most_specific_match(self):
+        presets = [
+            {"name": "Two", "hotkeys": ["ctrl", "space"]},
+            {"name": "Broken", "hotkeys": ["ctrl"]},
+            "not-a-preset",
+        ]
+        self.assertEqual(preset_for_keys(presets, {"ctrl", "space"})["name"], "Two")
+        self.assertEqual(preset_for_keys(presets, {"ctrl_l", "space"}), None)
+        self.assertIsNone(preset_for_keys(presets, {"ctrl"}))
 
 
 if __name__ == "__main__":

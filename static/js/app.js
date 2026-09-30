@@ -23,7 +23,6 @@
     const silenceAutoStopToggle = document.getElementById('silence-auto-stop-toggle');
     const silenceTimeoutSelect = document.getElementById('silence-timeout-select');
     const historyRetentionSelect = document.getElementById('history-retention-select');
-    const contextAwareSelect = document.getElementById('context-aware-select');
     const localLlmToggle = document.getElementById('local-llm-toggle');
     const hotkeySave = document.getElementById('hotkey-save');
     const statusDot = document.getElementById('status-dot');
@@ -42,7 +41,19 @@
     const onboardingModal = document.getElementById('onboarding-modal');
     const onboardingFinish = document.getElementById('onboarding-finish');
 
+    const tokenMeta = document.querySelector('meta[name="voiceflow-token"]');
+    const API_TOKEN = tokenMeta ? tokenMeta.content : '';
+
+    // Every /api call must carry the per-launch token; the server rejects others.
+    function apiFetch(url, options = {}) {
+        const headers = new Headers(options.headers || {});
+        headers.set('X-VoiceFlow-Token', API_TOKEN);
+        return fetch(url, { ...options, headers });
+    }
+
     let pollInterval = null;
+    let lastStatus = null;
+    let mainHotkeyKeys = ['alt', 'shift'];
     let presetsData = [];
     let historyData = [];
     let historySearchTimer = null;
@@ -169,7 +180,7 @@
         if (!historyList) return;
         const query = historySearch ? historySearch.value.trim() : '';
         try {
-            const response = await fetch(`/api/history?limit=100&q=${encodeURIComponent(query)}`);
+            const response = await apiFetch(`/api/history?limit=100&q=${encodeURIComponent(query)}`);
             const data = await response.json();
             if (!response.ok || !data.ok) throw new Error(data.error || 'Could not load history');
             historyData = data.items || [];
@@ -218,7 +229,7 @@
     }
 
     function loadAnalytics() {
-        fetch('/api/analytics')
+        apiFetch('/api/analytics')
             .then(r => r.json())
             .then(data => {
                 if (data.total_words !== undefined && statWords) {
@@ -236,13 +247,28 @@
             .catch(() => {});
     }
 
+    function formatHotkey(keys) {
+        const isMac = /Mac/i.test(navigator.platform || navigator.userAgent);
+        const names = { alt: 'Alt', shift: 'Shift', ctrl: 'Ctrl', cmd: isMac ? 'Cmd' : 'Win', space: 'Space' };
+        return keys.map(k => names[k] || String(k).toUpperCase()).join(' + ');
+    }
+
+    function updateHotkeyLabels(keys) {
+        mainHotkeyKeys = keys.slice(0, 2);
+        const label = formatHotkey(mainHotkeyKeys);
+        document.querySelectorAll('.main-hotkey-label').forEach(el => { el.textContent = label; });
+        const practiceBox = document.getElementById('practice-dictation-box');
+        if (practiceBox) practiceBox.placeholder = `Click here, then hold ${label} to dictate your first test sentence...`;
+    }
+
     function loadHotkeyConfig() {
-        fetch('/api/status')
+        apiFetch('/api/status')
             .then(r => r.json())
             .then(data => {
                 if (data.hotkey && data.hotkey.length >= 2) {
                     hotkey1.value = data.hotkey[0];
                     hotkey2.value = data.hotkey[1];
+                    updateHotkeyLabels(data.hotkey);
                 }
                 if (data.context_hotkey && data.context_hotkey.length >= 2 && contextHotkey1) {
                     contextHotkey1.value = data.context_hotkey[0];
@@ -273,9 +299,6 @@
                 }
                 if (data.voice_snippets !== undefined && voiceSnippets) {
                     voiceSnippets.value = data.voice_snippets;
-                }
-                if (data.context_aware_dictation !== undefined && contextAwareSelect) {
-                    contextAwareSelect.value = data.context_aware_dictation ? "true" : "false";
                 }
                 if (data.output_mode !== undefined && outputModeSelect) {
                     outputModeSelect.value = data.output_mode;
@@ -343,7 +366,7 @@
         const appAwareFormatting = appAwareToggle ? appAwareToggle.checked : true;
         const triggerMode = triggerModeSelect ? triggerModeSelect.value : "hold";
         const silenceAutoStop = silenceAutoStopToggle ? silenceAutoStopToggle.checked : true;
-        const silenceTimeoutSeconds = silenceTimeoutSelect ? Number(silenceTimeoutSelect.value) : 2.0;
+        const silenceTimeoutSeconds = silenceTimeoutSelect ? Number(silenceTimeoutSelect.value) : 3;
         const historyRetentionDays = historyRetentionSelect ? Number(historyRetentionSelect.value) : 30;
         const mainDictationAi = mainDictationAiToggle ? mainDictationAiToggle.checked : false;
         const lang = languageSelect ? languageSelect.value : "auto";
@@ -406,7 +429,7 @@
         };
         if (key) configPayload.api_key = key;
 
-        fetch('/api/config', {
+        apiFetch('/api/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(configPayload)
@@ -419,7 +442,10 @@
                     apiKey.value = '';
                     apiKey.placeholder = 'Saved securely — enter a new key to replace it';
                 }
+                updateHotkeyLabels([k1, k2]);
                 showToast('Settings successfully applied!');
+            } else {
+                showToast(data.error || 'Failed to update settings');
             }
         })
         .catch(() => {
@@ -429,15 +455,18 @@
 
     function startStatusPolling() {
         pollInterval = setInterval(function() {
-            fetch('/api/status')
+            apiFetch('/api/status')
                 .then(r => r.json())
                 .then(data => {
                     updateStatusUI(data.status);
+                    // A dictation just finished: refresh the counters and history once.
+                    if (lastStatus && lastStatus !== 'idle' && data.status === 'idle') {
+                        loadAnalytics();
+                        loadHistory();
+                    }
+                    lastStatus = data.status;
                 })
                 .catch(() => {});
-                
-            // Update analytics dynamically
-            loadAnalytics();
         }, 1000);
     }
 
@@ -472,7 +501,7 @@
                 }
                 if (!window.confirm('Remove the saved Groq API key from this computer?')) return;
                 try {
-                    const response = await fetch('/api/config', {
+                    const response = await apiFetch('/api/config', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ clear_api_key: true })
@@ -585,7 +614,7 @@
             onboardingFinish.addEventListener('click', async () => {
                 stopMicTest();
                 try {
-                    const response = await fetch('/api/config', {
+                    const response = await apiFetch('/api/config', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ onboarding_complete: true })
@@ -593,7 +622,7 @@
                     const data = await response.json();
                     if (!response.ok || !data.ok) throw new Error(data.error || 'Setup failed');
                     onboardingModal.hidden = true;
-                    showToast('Welcome to VoiceFlow! Hold Alt + Shift to dictate anytime.');
+                    showToast(`Welcome to VoiceFlow! Hold ${formatHotkey(mainHotkeyKeys)} to dictate anytime.`);
                 } catch (error) {
                     showToast(error.message || 'Could not finish setup');
                 }
@@ -603,7 +632,7 @@
             historyClear.addEventListener('click', async () => {
                 if (!window.confirm('Permanently delete all local transcript history and recovery audio?')) return;
                 try {
-                    const response = await fetch('/api/history', { method: 'DELETE' });
+                    const response = await apiFetch('/api/history', { method: 'DELETE' });
                     const data = await response.json();
                     if (!response.ok || !data.ok) throw new Error(data.error || 'Clear failed');
                     historyData = [];
@@ -648,7 +677,7 @@
                     retryButton.disabled = true;
                     retryButton.textContent = 'Retrying…';
                     try {
-                        const response = await fetch(`/api/history/${encodeURIComponent(item.id)}/retry`, { method: 'POST' });
+                        const response = await apiFetch(`/api/history/${encodeURIComponent(item.id)}/retry`, { method: 'POST' });
                         const data = await response.json();
                         if (!response.ok || !data.ok) throw new Error(data.error || data.item?.error_message || 'Retry failed');
                         await loadHistory();
@@ -663,7 +692,7 @@
                 if (event.target.closest('.history-delete')) {
                     if (!window.confirm('Delete this transcript from local history?')) return;
                     try {
-                        const response = await fetch(`/api/history/${encodeURIComponent(item.id)}`, { method: 'DELETE' });
+                        const response = await apiFetch(`/api/history/${encodeURIComponent(item.id)}`, { method: 'DELETE' });
                         const data = await response.json();
                         if (!response.ok || !data.ok) throw new Error(data.error || 'Delete failed');
                         historyData = historyData.filter(entry => entry.id !== item.id);
@@ -780,7 +809,7 @@
                 let formData = new FormData();
                 formData.append('file', file);
 
-                fetch('/api/transcribe_file', {
+                apiFetch('/api/transcribe_file', {
                     method: 'POST',
                     body: formData
                 })
@@ -803,10 +832,16 @@
         }
     }
 
-    function checkAppUpdates() {
-        fetch('/api/check_update')
+    function checkAppUpdates(manual = false) {
+        if (manual) showToast('Checking for updates…');
+        apiFetch('/api/check_update')
             .then(r => r.json())
             .then(data => {
+                if (manual && (!data || !data.ok)) {
+                    showToast('Could not check for updates');
+                } else if (manual && !data.update_available) {
+                    showToast(`VoiceFlow ${data.current_version} is up to date`);
+                }
                 if (data && data.ok && data.update_available) {
                     const banner = document.getElementById('update-banner');
                     const versionSpan = document.getElementById('update-version');
@@ -818,8 +853,12 @@
                     }
                 }
             })
-            .catch(() => {});
+            .catch(() => {
+                if (manual) showToast('Could not check for updates');
+            });
     }
+
+    window.checkAppUpdates = checkAppUpdates;
 
     window.switchToMini = function() {
         if (window.pywebview && window.pywebview.api) {

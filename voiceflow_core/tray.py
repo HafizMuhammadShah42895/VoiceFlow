@@ -17,6 +17,7 @@ class SystemTray:
         on_toggle_pause: Optional[Callable[[], None]] = None,
         on_copy_last: Optional[Callable[[], None]] = None,
         on_paste_last: Optional[Callable[[], None]] = None,
+        on_undo_voice_edit: Optional[Callable[[], None]] = None,
         on_check_updates: Optional[Callable[[], None]] = None,
         on_quit: Optional[Callable[[], None]] = None,
         is_paused_fn: Optional[Callable[[], bool]] = None,
@@ -25,6 +26,7 @@ class SystemTray:
         self.on_toggle_pause = on_toggle_pause
         self.on_copy_last = on_copy_last
         self.on_paste_last = on_paste_last
+        self.on_undo_voice_edit = on_undo_voice_edit
         self.on_check_updates = on_check_updates
         self.on_quit = on_quit
         self.is_paused_fn = is_paused_fn
@@ -80,6 +82,10 @@ class SystemTray:
                 if self.on_paste_last:
                     self.on_paste_last()
 
+            def _handle_undo_voice_edit(icon, item):
+                if self.on_undo_voice_edit:
+                    self.on_undo_voice_edit()
+
             def _handle_check_updates(icon, item):
                 if self.on_check_updates:
                     self.on_check_updates()
@@ -99,6 +105,7 @@ class SystemTray:
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Copy Last Transcript", _handle_copy_last),
                 pystray.MenuItem("Paste Last Transcript", _handle_paste_last),
+                pystray.MenuItem("Undo Last AI Edit", _handle_undo_voice_edit),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Check for Updates", _handle_check_updates),
                 pystray.Menu.SEPARATOR,

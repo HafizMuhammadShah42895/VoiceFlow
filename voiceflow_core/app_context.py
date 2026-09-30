@@ -15,7 +15,24 @@ class AppContext:
     window_title: str = ""
     category: str = "default"
     instruction: str = ""
+    window_handle: int = 0
 
+    @property
+    def allows_selection_capture(self) -> bool:
+        """Whether sending Ctrl+C to detect a selection is harmless in this app.
+
+        Terminals treat Ctrl+C as an interrupt, and code editors copy the whole
+        current line when nothing is selected, so voice edit is skipped there.
+        """
+        return (
+            self.category not in SELECTION_CAPTURE_UNSAFE_CATEGORIES
+            and self.process_name not in SELECTION_CAPTURE_UNSAFE_PROCESSES
+        )
+
+
+SELECTION_CAPTURE_UNSAFE_CATEGORIES = {"terminal", "code"}
+# Excel copies the active cell when nothing is selected.
+SELECTION_CAPTURE_UNSAFE_PROCESSES = {"excel.exe"}
 
 APP_RULES = {
     "email": {
@@ -87,18 +104,18 @@ def get_foreground_app_context() -> AppContext:
         pid = wintypes.DWORD()
         user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
         if not pid.value:
-            return AppContext(window_title=window_title)
+            return AppContext(window_title=window_title, window_handle=hwnd)
 
         PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
         handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid.value)
         if not handle:
-            return AppContext(window_title=window_title)
+            return AppContext(window_title=window_title, window_handle=hwnd)
 
         try:
             path_buffer = ctypes.create_unicode_buffer(4096)
             size = wintypes.DWORD(len(path_buffer))
             if not kernel32.QueryFullProcessImageNameW(handle, 0, path_buffer, ctypes.byref(size)):
-                return AppContext(window_title=window_title)
+                return AppContext(window_title=window_title, window_handle=hwnd)
             process_name = os.path.basename(path_buffer.value).lower()
         finally:
             kernel32.CloseHandle(handle)
@@ -110,7 +127,24 @@ def get_foreground_app_context() -> AppContext:
             window_title=window_title,
             category=category,
             instruction=instruction,
+            window_handle=hwnd,
         )
     except Exception as e:
         log(f"Could not detect foreground app: {e}")
         return AppContext()
+
+
+def focus_window(window_handle: int) -> bool:
+    """Bring a previously captured window back to the foreground (Windows only)."""
+    if sys.platform != "win32" or not window_handle:
+        return False
+    try:
+        import ctypes
+
+        user32 = ctypes.windll.user32
+        if not user32.IsWindow(window_handle):
+            return False
+        return bool(user32.SetForegroundWindow(window_handle))
+    except Exception as e:
+        log(f"Could not focus window: {e}")
+        return False
