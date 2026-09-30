@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+import re
 import sys
 import uuid
 from typing import Any, Iterable, Optional
@@ -18,7 +18,8 @@ MAX_APPS_PER_PROFILE = 50
 
 def normalize_app_name(name: str) -> str:
     """Turn 'Slack', 'slack.exe' or a full path into the process name we detect."""
-    name = os.path.basename((name or "").strip().strip('"')).lower()
+    # Split on both separators: a pasted Windows path must work on every platform.
+    name = re.split(r"[\\/]", (name or "").strip().strip('"'))[-1].lower()
     if name and sys.platform == "win32" and not name.endswith(".exe"):
         name += ".exe"
     return name
